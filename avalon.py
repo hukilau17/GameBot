@@ -250,21 +250,21 @@ class Avalon(Game):
         # av poke: pings people who the game is currently waiting for to make a decision
         if (await self.check_running(message)):
             if self.waiting_for_votes:
-                await message.channel.send('*Currently waiting for the following players to cast their votes: %s*' % \
-                                           ', '.join([p.user.mention for p in self.players if p.vote is None]))
+                await self.bot.main_channel.send('*Currently waiting for the following players to cast their votes: %s*' % \
+                                                 ', '.join([p.user.mention for p in self.players if p.vote is None]))
             elif self.waiting_for_outcomes:
-                await message.channel.send('*Currently waiting for the following players to play their Success/Fail cards: %s*' % \
-                                           ', '.join([p.user.mention for p in self.team if p.outcome is None]))
+                await self.bot.main_channel.send('*Currently waiting for the following players to play their Success/Fail cards: %s*' % \
+                                                 ', '.join([p.user.mention for p in self.team if p.outcome is None]))
             elif self.waiting_for_lady:
-                await message.channel.send('*Currently waiting for %s to play the Lady of the Lake*' % self.lady.user.mention)
+                await self.bot.main_channel.send('*Currently waiting for %s to play the Lady of the Lake*' % self.lady.user.mention)
             elif self.waiting_for_assassin:
-                await message.channel.send('*Currently waiting for %s to pick someone to assassinate*' % self.assassin.user.mention)
+                await self.bot.main_channel.send('*Currently waiting for %s to pick someone to assassinate*' % self.assassin.user.mention)
             elif self.leader and (len(self.team) < self.current_quest[0]):
                 n = self.current_quest[0] - len(self.team)
-                await message.channel.send('*Currently waiting for %s to pick %d%s team member%s*' % \
-                                           (self.leader.user.mention, n, (' more' if self.team else ''), ('s' if n > 1 else '')))
+                await self.bot.main_channel.send('*Currently waiting for %s to pick %d%s team member%s*' % \
+                                                  (self.leader.user.mention, n, (' more' if self.team else ''), ('s' if n > 1 else '')))
             else:
-                await message.channel.send('*Not currently waiting for anyone to make a decision.*')
+                await self.bot.main_channel.send('*Not currently waiting for anyone to make a decision.*')
 
 
 
@@ -924,7 +924,7 @@ Lady of the Lake - a card used to learn the alignment of another player''')
             # Warn that these are being ignored
             await self.bot.main_channel.send('Switching Morgana/Percival off because Merlin is off.')
             self.features['morgana'] = False
-        # Other weird roles
+        # Other weird evil roles
         if self.features['mordred']:
             special_evil.append(Role.MORDRED)
         if self.features['oberon']:
@@ -948,6 +948,20 @@ Lady of the Lake - a card used to learn the alignment of another player''')
         # Consolidate all roles into the appropriately sized lists
         good = (special_good + good)[:len(good)]
         evil = (special_evil + evil)[:len(evil)]
+        # Merge Norebo and/or Palm randomly with someone else
+        # (This does nothing if the owner has already *explicitly*
+        # merged them.)
+        for role in (Role.NOREBO, Role.PALM):
+            if role in good:
+                index = random.randrange(len(good))
+                to_merge = good[index]
+                if to_merge != role:
+                    if isinstance(to_merge, tuple):
+                        new_role = to_merge + (role,)
+                    else:
+                        new_role = (to_merge, role)
+                    good[index] = new_role
+                    good[good.index(role)] = Role.SERVANT
         # Turn off roles if we don't have enough players for them
         rejected_roles = [role for role in special_good if role not in good] + \
                          [role for role in special_evil if role not in evil]

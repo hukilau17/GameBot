@@ -2,7 +2,13 @@
 # Matthew Kroesche
 
 import discord
-from .server_info import *
+import configparser
+
+config = configparser.ConfigParser()
+config.read('server_info.ini')
+
+TOKEN = config['DEFAULT']['Token']
+GAME_CHANNEL = int(config['DEFAULT']['GameChannel'])
 
 
 
@@ -16,20 +22,16 @@ class GameBot(discord.Client):
         self.main_channel = None # The default channel to post messages in
         self.last_ping = None # Keep a delay on pings in #off-topic so they don't flood it
         self.DEBUG = debug
-        self.reconnected = False
-
-
-    async def on_connect(self):
-        self.reconnected = True
-
+        self.connected = False
+        
 
     async def on_ready(self):
         # Find the main channel
         if self.main_channel is None:
-            self.main_channel = discord.utils.get(self.get_all_channels(), id=GAMEBOT_CHANNEL)
-        if self.reconnected:
+            self.main_channel = discord.utils.get(self.get_all_channels(), id=GAME_CHANNEL)
+        if (not self.connected) or any([game.running for game in self.games]):
             await self.main_channel.send('%s is now online' % self.user.mention)
-            self.reconnected = False
+            self.connected = True
 
 
     async def on_message(self, message):
@@ -39,7 +41,7 @@ class GameBot(discord.Client):
             return
         # Find the main channel
         if self.main_channel is None:
-            self.main_channel = discord.utils.get(self.get_all_channels(), id=GAMEBOT_CHANNEL)
+            self.main_channel = discord.utils.get(self.get_all_channels(), id=GAME_CHANNEL)
         # Figure out which game, if any, the message is referring to
         content = message.content.lower()
         for game in self.games:

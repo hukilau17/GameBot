@@ -8,8 +8,15 @@ import datetime
 import traceback
 import random
 import asyncio
+import configparser
 
-from .server_info import *
+config = configparser.ConfigParser()
+config.read('server_info.ini')
+
+PING_CHANNEL = int(config['DEFAULT']['PingChannel'])
+ROLE_ID      = int(config['DEFAULT']['RoleId'     ])
+MASTER_ID    = int(config['DEFAULT']['MasterId'   ])
+HEFF_ID      = int(config['DEFAULT']['HeffId'     ])
 
 PING_DELAY = datetime.timedelta(hours=1) # One-hour delay for pinging #off-topic
 VOTEKICK_MIN = 4 # Four votes required to force an inactive game to end

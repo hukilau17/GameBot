@@ -339,6 +339,13 @@ class LiarsDice(Game):
         return '%d %d%s' % (num, value, '' if num == 1 else 's')
 
 
+    def compare_bid(self, bid):
+        num, value = bid
+        if (value == 1) and self.ones_wild:
+            return 2*num, value
+        return num, value
+
+
 
     async def ld_bid(self, message):
         '''Make a bid on the number of dice'''
@@ -353,12 +360,12 @@ class LiarsDice(Game):
             if (num < 1) or not (1 <= value <= self.n_sides):
                 await message.channel.send('Illegal bid, please try again')
                 return
-            if self.ones_wild and (value == 1):
-                await message.channel.send('Cannot bid on the number of ones since they are wild')
-                return
             if self.last_bidder:
-                if self.last_bidder.bid >= (num, value):
-                    await message.channel.send('Please try again, you must raise the current bid of %s' % self.format_bid(self.last_bidder.bid))
+                if self.compare_bid(self.last_bidder.bid) >= self.compare_bid((num, value)):
+                    errormsg = 'Please try again, you must raise the current bid of %s' % self.format_bid(self.last_bidder.bid)
+                    if self.ones_wild and (1 in (self.last_bidder.bid[1], value)):
+                        errormsg += '\n*Note that since ones are wild, bids involving ones are worth twice as much.*'
+                    await message.channel.send(errormsg)
                     return
             # Update the bid
             self.current.bid = (num, value)
@@ -431,9 +438,9 @@ class LiarsDice(Game):
                 # The accusation was against the last player to make a bid
                 num, value = player.bid
                 count = sum([p.dice.count(value) for p in self.players])
-                if self.ones_wild:
+                if self.ones_wild and (value != 1):
                     count += sum([p.dice.count(1) for p in self.players])
-                msg = 'Total number of %ds%s: **%d**\n' % (value, ' (including wilds)' if self.ones_wild else '', count)
+                msg = 'Total number of %ds%s: **%d**\n' % (value, ' (including wilds)' if self.ones_wild and (value != 1) else '', count)
                 if count >= num:
                     msg += '%s\'s bid was **correct**, so %s %s a die.' % (player.user.mention, current.user.mention, penalty)
                     losing = current
@@ -529,9 +536,9 @@ class LiarsDice(Game):
             await result_msg.delete(delay=RESULT_DELAY) # Delete after a certain time
             num, value = player.bid
             count = sum([p.dice.count(value) for p in self.players])
-            if self.ones_wild:
+            if self.ones_wild and (value != 1):
                 count += sum([p.dice.count(1) for p in self.players])
-            msg = 'Total number of %ds%s: **%d**\n' % (value, ' (including wilds)' if self.ones_wild else '', count)
+            msg = 'Total number of %ds%s: **%d**\n' % (value, ' (including wilds)' if self.ones_wild and (value != 1) else '', count)
             losing = []
             winning = []
             if count == num:
@@ -553,7 +560,8 @@ class LiarsDice(Game):
                     else:
                         msg += '.'
             else:
-                msg += '%s\'s bid was **not** spot on, so %s loses a die' % (player.user.mention, current.user.mention)
+                msg += '%s\'s bid was **not** spot on, so %s %s a die' % (player.user.mention, current.user.mention,
+                                                                          'loses' if self.n_dice_start > self.n_dice_end else 'gains')
                 losing = [current]
             # Send the message and penalize/reward the appropriate player(s)
             await self.bot.main_channel.send(msg)
