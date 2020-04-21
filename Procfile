@@ -1,1 +1,1 @@
-web: gunicorn gamebot.wsgi --log-file -
+web: gunicorn GameBot.wsgi --log-file -
