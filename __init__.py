@@ -1,6 +1,11 @@
 # Discord GameBot class
 # Matthew Kroesche
 
+try:
+    import GameBot.server_settings
+except ImportError:
+    pass
+
 from GameBot.bot import GameBot
 
 from GameBot.avalon import Avalon

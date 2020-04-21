@@ -2,13 +2,7 @@
 # Matthew Kroesche
 
 import discord
-import configparser
-
-config = configparser.ConfigParser()
-config.read('server_info.ini')
-
-TOKEN = config['DEFAULT']['Token']
-GAME_CHANNEL = int(config['DEFAULT']['GameChannel'])
+import os
 
 
 
@@ -28,7 +22,7 @@ class GameBot(discord.Client):
     async def on_ready(self):
         # Find the main channel
         if self.main_channel is None:
-            self.main_channel = discord.utils.get(self.get_all_channels(), id=GAME_CHANNEL)
+            self.main_channel = discord.utils.get(self.get_all_channels(), id=int(os.getenv('GAMEBOT_DEFAULT_CHANNEL')))
         if (not self.connected) or any([game.running for game in self.games]):
             await self.main_channel.send('%s is now online' % self.user.mention)
             self.connected = True
@@ -41,7 +35,7 @@ class GameBot(discord.Client):
             return
         # Find the main channel
         if self.main_channel is None:
-            self.main_channel = discord.utils.get(self.get_all_channels(), id=GAME_CHANNEL)
+            self.main_channel = discord.utils.get(self.get_all_channels(), id=int(os.getenv('GAMEBOT_DEFAULT_CHANNEL')))
         # Figure out which game, if any, the message is referring to
         content = message.content.lower()
         for game in self.games:
@@ -53,4 +47,4 @@ class GameBot(discord.Client):
 
     def run(self):
         # Run the GameBot
-        discord.Client.run(self, TOKEN)
+        discord.Client.run(self, os.getenv('GAMEBOT_TOKEN'))

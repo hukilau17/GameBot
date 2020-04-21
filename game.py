@@ -3,20 +3,12 @@
 
 import discord
 import sys
+import os
 import io
 import datetime
 import traceback
 import random
 import asyncio
-import configparser
-
-config = configparser.ConfigParser()
-config.read('server_info.ini')
-
-PING_CHANNEL = int(config['DEFAULT']['PingChannel'])
-ROLE_ID      = int(config['DEFAULT']['RoleId'     ])
-MASTER_ID    = int(config['DEFAULT']['MasterId'   ])
-HEFF_ID      = int(config['DEFAULT']['HeffId'     ])
 
 PING_DELAY = datetime.timedelta(hours=1) # One-hour delay for pinging #off-topic
 VOTEKICK_MIN = 4 # Four votes required to force an inactive game to end
@@ -162,9 +154,9 @@ class Game(object):
         now = datetime.datetime.now()
         if (self.bot.last_ping is None) or (now - self.bot.last_ping >= PING_DELAY):
             if message.guild:
-                role = discord.utils.get(message.guild.roles, id=ROLE_ID)
+                role = discord.utils.get(message.guild.roles, id=int(os.getenv('GAMEBOT_ROLE_ID')))
                 self.bot.last_ping = now
-                ping_channel = discord.utils.get(self.bot.get_all_channels(), id=PING_CHANNEL)
+                ping_channel = discord.utils.get(self.bot.get_all_channels(), id=int(os.getenv('GAMEBOT_PING_CHANNEL')))
                 await ping_channel.send('%s: a game of %s has been created in %s!' % (role.mention, self.name, self.bot.main_channel.mention))
                     
                 
@@ -180,6 +172,10 @@ class Game(object):
 
     async def gb_join(self, message):
         '''Join a game that has not yet started'''
+        if not self.owner:
+            # Create a game if one doesn't already exist
+            await self.gb_create(message)
+            return
         if (await self.check_not_running(message)):
             # Make sure we're not already part of the game
             if self.find_player(message.author):
@@ -261,7 +257,7 @@ class Game(object):
         # For debugging ONLY!
         if not self.bot.DEBUG:
             return
-        if message.author.id != MASTER_ID:
+        if message.author.id != int(os.getenv('GAMEBOT_MASTER_ID')):
             await message.channel.send('You do not have permission to run debugging commands!')
             return
         start = message.content.find('```')
@@ -295,7 +291,7 @@ class Game(object):
         if message.channel_mentions:
             heff = message.channel_mentions[0]
         else:
-            heff = discord.utils.get(self.bot.get_all_members(), id=HEFF_ID)
+            heff = discord.utils.get(self.bot.get_all_members(), id=int(os.getenv('GAMEBOT_HEFF_ID')))
         await heff.send('shup heff')
 
 

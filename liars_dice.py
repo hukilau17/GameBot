@@ -424,7 +424,7 @@ class LiarsDice(Game):
             # Make a public announcement
             current = self.current
             self.current = None # Don't allow repeat invocations!
-            if player == self.last_bidder:
+            if not is_pass:
                 await self.bot.main_channel.send('%s challenged %s\'s bid of %s.' % (message.author.mention, player.user.mention, self.format_bid(player.bid)))
             else:
                 await self.bot.main_channel.send('%s challenged %s\'s pass.' % (message.author.mention, player.user.mention))
@@ -449,15 +449,17 @@ class LiarsDice(Game):
                     losing = player
             else:
                 # The accusation was against somebody who passed
+                dice = list(player.dice)
+                has_ones = (self.ones_wild and (1 in dice) and (len(dice) > 1)) # You can't pass if you have a wild, unless it's the only dice you have
                 if self.pass_mode & PASS_UNIQUE:
-                    if len(player.dice) == len(set(player.dice)):
+                    if (len(dice) == len(set(dice))) and not has_ones:
                         msg = '%s\'s dice were all unique, so they were allowed to pass. %s %s a die.' % (player.user.mention, current.user.mention, penalty)
                         losing = current
                     else:
                         msg = '%s\'s dice were not all unique, so they should not have passed. %s %s a die.' % (player.user.mention, player.user.mention, penalty)
                         losing = player
                 else:
-                    if len(player.dice) == len(set(player.dice)) == 2:
+                    if (len(dice) == len(set(dice)) == 2) and not has_ones:
                         msg = '%s has exactly two dice showing different values, so they were allowed to pass. %s %s a die.' % \
                               (player.user.mention, current.user.mention, penalty)
                         losing = current
