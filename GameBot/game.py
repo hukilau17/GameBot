@@ -127,6 +127,11 @@ class Game(object):
     ##### GB commands (commands available in every GameBot game) #####
 
 
+    async def setup(self):
+        # Abstract method, override if you have async stuff you need to do at start-up
+        pass
+
+
     async def create(self, message):
         # Initialize the data structures specific to this particular game
         # Abstract method, override this!

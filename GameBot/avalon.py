@@ -153,6 +153,10 @@ class Avalon(Game):
         return Player(user, (), None, None, None)
 
 
+    async def setup(self):
+        await self.fetch_stats()
+
+
     async def create(self, message):
         self.team = [] # List of members of the current team
         self.leader = None
