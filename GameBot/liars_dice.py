@@ -27,7 +27,7 @@ SPOT_PENALIZE = 4 # A correct spot call causes everyone else to lose a die (or g
 
 # Default settings for pass and spot
 PASS_DEFAULT = PASS_UNIQUE
-SPOT_DEFAULT = SPOT_REWARD
+SPOT_DEFAULT = SPOT_PENALIZE
 
 RESULT_DELAY = 10 # Number of seconds before dice messages are deleted
 
@@ -203,7 +203,7 @@ class LiarsDice(Game):
                     mode |= SPOT_NORMAL
                 elif setting == 'reward':
                     mode |= SPOT_REWARD
-                elif setting == 'penalize':
+                elif setting in ('penalize', 'thanos'):
                     mode |= SPOT_PENALIZE
                 else:
                     await message.channel.send('Invalid spot mode: should be one of none, normal, reward, penalize')

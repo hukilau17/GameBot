@@ -17,6 +17,7 @@ class GameBot(discord.Client):
         self.last_ping = None # Keep a delay on pings in #off-topic so they don't flood it
         self.DEBUG = debug
         self.connected = False
+        self.muted = []
         
 
     async def on_ready(self):
@@ -45,6 +46,11 @@ class GameBot(discord.Client):
                 command = content.split(None, 2)[1]
                 if command in game.cmd_lookup:
                     await game.cmd_lookup[command](message)
+                    break
+        # If we're muted, delete this message
+        if message.channel == self.main_channel:
+            if any([muted.user == message.author for muted in self.muted]):
+                await message.delete()
 
 
     def run(self):
