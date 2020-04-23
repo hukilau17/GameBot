@@ -50,7 +50,9 @@ class Game(object):
                     break
             if snipsize:
                 self.cmd_lookup[name[:snipsize]] = func
-            help_strings.append('%s __%s__%s: %s' % (self.prefix, name[:snipsize], name[snipsize:], func.__doc__))
+                help_strings.append('%s __%s__%s: %s' % (self.prefix, name[:snipsize], name[snipsize:], func.__doc__))
+            else:
+                help_strings.append('%s %s: %s' % (self.prefix, name, func.__doc__))
         help_strings.sort()
         self.help = '**%s bot commands:**\n%s' % (self.name, '\n'.join(help_strings))
 
