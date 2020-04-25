@@ -358,7 +358,7 @@ where [num] is the integer number of the snark. People who are not part of the g
             embed = discord.Embed(title=self.name, description=reply, type='rich', colour=discord.Colour.blue())
             embed.add_field(name='Player', value=player.user.mention, inline=False)
             if data:
-                embed.add_field(name='Votes', ', '.join([u.mention for i, u in data]))
+                embed.add_field(name='Votes', value=', '.join([u.mention for i, u in data]))
             embed.add_field(name='Score', value='**%d**' % score, inline=False)
             if total:
                 embed.add_field(name='', value='*Total Snarkery!*') # Yes it's dumb, I know
