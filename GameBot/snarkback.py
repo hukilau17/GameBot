@@ -64,6 +64,9 @@ class Snarkback(Game):
         if len(self.players) < 3:
             await message.channel.send('Cannot start: the game should have at least 3 players')
             return
+        if not hasattr(self, 'QUESTIONS'):
+            await message.channel.send('Cannot start: the questions have not been loaded yet. Please wait a moment.')
+            return
         # Set up the list of questions
         self.questions = self.QUESTIONS[:]
         # No upper limit on the number of players :P
@@ -201,6 +204,12 @@ class Snarkback(Game):
 
 
 
+    async def sb_form(self, message):
+        '''Get the Google form for submitting custom quesetions'''
+        await message.channel.send(os.getenv('GAMEBOT_SB_FORM', 'Oops, couldn\'t find the form'))
+
+
+
     def shuffle_snarks(self):
         # Shuffle everyone's replies and put them in the list
         for prompt in self.prompts:
@@ -230,7 +239,7 @@ class Snarkback(Game):
         async with self.bot.main_channel.typing():
             await asyncio.sleep(5) # Pause for dramatic effect
         # Put together the snark embed
-        embed = discord.Embed(title=self.name, description=prompt, type='rich')
+        embed = discord.Embed(title=self.name, description=prompt, type='rich', colour=discord.Colour.blue())
         nonvoting = []
         for i, (reply, player) in enumerate(replies, 1):
             embed.add_field(name='%d.' % i, value=reply, inline=False)
@@ -333,25 +342,34 @@ where [num] is the integer number of the snark. People who are not part of the g
                 if v == i:
                     data.append((2, u))
             # Find out the score
+            total = False
             if self.round != 3:
                 score = 1000.0 * self.round * len(data) / total_votes
+                # Add a bonus if someone has *all* the votes!
+                if all([p.votes[0] in (0, i) for p in self.players if p.votes]) and all([v == i for v in self.audience_votes]):
+                    score += 100.0 * self.round
+                    total = True
             else:
                 score = 1500.0 * sum([4-i for i, u in data]) / total_votes
             score = int(round(score))
             player.round_score += score
             data.append(score)
             # Add a line to the results
-            line = '"%s" (%s)\n' % (reply, player.user.mention)
+            embed = discord.Embed(title=self.name, description=reply, type='rich', colour=discord.Colour.blue())
+            embed.add_field(name='Player', value=player.user.mention, inline=False)
             if data:
-                line += ', '.join([u.mention for i, u in data]) + '\n'
-            line += 'Score: **%d**' % score
+                embed.add_field(name='Votes', ', '.join([u.mention for i, u in data]))
+            embed.add_field(name='Score', value='**%d**' % score, inline=False)
+            if total:
+                embed.add_field(name='', value='*Total Snarkery!*') # Yes it's dumb, I know
             results.append((line, score))
         # Sort the lines and print them out one by one
         results.sort(key = lambda x: x[1])
-        for line, score in results:
+        await self.bot.main_channel.send('And the results are...')
+        for embed, score in results:
             async with self.bot.main_channel.typing():
                 await asyncio.sleep(3) # Pause for dramatic effect
-            await self.bot.main_channel.send(line)
+            await self.bot.main_channel.send(embed=embed)
         
         
                     
