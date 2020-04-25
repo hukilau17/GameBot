@@ -23,7 +23,7 @@ Player = recordclass.recordclass('Player', 'user score round_score prompts snark
 
 
 
-MAX_SNARK_SIZE = 64 # The maximum length of a reply to a prompt
+MAX_SNARK_SIZE = 32 # The maximum length of a reply to a prompt
 
 
 
@@ -189,12 +189,14 @@ class Snarkback(Game):
                 await message.channel.send('Your reply is too long, it should be at most %d characters. Please try again.' % MAX_SNARK_SIZE)
                 return
             await message.channel.send('Thank you for your reply!')
+            snark = snark.upper()
             player.snarks.append(snark)
             if len(player.snarks) < len(player.prompts):
                 await self.next_prompt(player)
             elif all([len(p.snarks) == len(p.prompts) for p in self.players]):
                 if not self.snarks:
                     self.shuffle_snarks()
+                    await self.bot.main_channel.send('Thanks for your awesome replies! Now let\'s start voting!')
                     await self.next_vote()
 
 
@@ -236,12 +238,12 @@ class Snarkback(Game):
                 nonvoting.append(player)
         await self.bot.main_channel.send(embed=embed)
         # Check for a jinx
-        if (self.round != 3) and (self.replies[1][0] == self.replies[2][0]):
+        if (self.round != 3) and (replies[0][0] == replies[1][0]):
             await self.bot.main_channel.send('**Jinx!** Both snarks are exactly the same. Nobody gets any points.')
             await self.next_vote()
             return
         await self.bot.main_channel.send('Everyone: please vote on a reply to the prompt. Do this by DMing "sb vote [num]" to %s, \
-where [num] is the integer number of the snark. People who are not part of the game can vote too!' \
+where [num] is the integer number of the snark. People who are not part of the game can vote too! Also you can type "sb vote 0" to abstain.' \
                                          % self.bot.user.mention)
         # Set up everyone's voting data
         if self.round == 3:
@@ -276,7 +278,7 @@ where [num] is the integer number of the snark. People who are not part of the g
             except (AssertionError, ValueError):
                 await message.channel.send('Syntax: sb vote [integer_number]')
                 return
-            if not (1 <= index <= len(self.current_snark[1:])):
+            if not (0 <= index <= len(self.current_snark[1:])):
                 await message.channel.send('Error: invalid snark number')
                 return
             if player:
@@ -287,10 +289,10 @@ where [num] is the integer number of the snark. People who are not part of the g
                     else:
                         await message.channel.send('Error: you have already finished voting')
                     return
-                if vote in player.votes:
+                if (vote in player.votes) and (vote != 0):
                     await message.channel.send('Error: you have already voted for that option. Please pick a different one.')
                     return
-                if self.snark[vote][1] == player:
+                if (vote != 0) and (self.snark[vote][1] == player):
                     await message.channel.send('Error: you cannot vote for your own reply')
                     return
                 player.votes.append(vote)
@@ -300,7 +302,8 @@ where [num] is the integer number of the snark. People who are not part of the g
                 if any([v[1] == message.author for v in self.audience_votes]):
                     await message.channel.send('Error: you have already voted')
                     return
-                self.audience_votes.append((vote, message.author))
+                if vote != 0:
+                    self.audience_votes.append((vote, message.author))
                 need_more = False
             # Ping the user back
             await message.channel.send('Thank you for voting!')
