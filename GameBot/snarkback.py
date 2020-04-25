@@ -125,14 +125,14 @@ class Snarkback(Game):
             # For now, the host is allowed to change the timer settings mid-game; they'll
             # go into effect the next time something happens that would require a timer.
             self.timed = True
-            await self.bot.main_channel.send('*Timer mode has been turned on.')
+            await self.bot.main_channel.send('*Timer mode has been turned on.*')
 
             
     async def sb_notimer(self, message):
         '''Turn off timer mode'''
         if (await self.check_owner(message)):
             self.timed = False
-            await self.bot.main_channel.send('*Timer mode has been turned off.')
+            await self.bot.main_channel.send('*Timer mode has been turned off.*')
 
 
 
@@ -368,7 +368,7 @@ where [num] is the integer number of the snark. People who are not part of the g
                 if (vote in player.votes) and (vote != 0):
                     await message.channel.send('Error: you have already voted for that option. Please pick a different one.')
                     return
-                if (vote != 0) and (self.snark[vote][1] == player):
+                if (vote != 0) and (self.current_snark[vote][1] == player):
                     await message.channel.send('Error: you cannot vote for your own reply')
                     return
                 player.votes.append(vote)
