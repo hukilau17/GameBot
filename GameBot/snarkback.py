@@ -24,6 +24,9 @@ Player = recordclass.recordclass('Player', 'user score round_score prompts snark
 
 
 MAX_SNARK_SIZE = 32 # The maximum length of a reply to a prompt
+PROMPT_TIMER = 60 # The timer for a prompt (if timers are turned on)
+VOTING_TIMER = 15 # The timer for voting (if timers are turned on)
+
 
 
 
@@ -46,6 +49,8 @@ class Snarkback(Game):
         self.audience_votes = []    # List of votes received from the audience. Each is the index of a snark.
         self.current_snark  = None  # The snark currently being voted on
         self.voting         = False # True if the voting for this prompt is currently open.
+        self.timed          = False # True if this is a timed game
+        self.timer_task     = None  # The current timer task, if any
 
 
     async def setup(self):
@@ -55,7 +60,7 @@ class Snarkback(Game):
                 data = o.read()
             if isinstance(data, bytes):
                 data = data.decode()
-            self.QUESTIONS = data.splitlines()
+            self.QUESTIONS = data.strip().splitlines()
         except:
             await self.bot.main_channel.send('*Error loading Snarkback prompts!!*')
 
@@ -63,9 +68,11 @@ class Snarkback(Game):
     async def start(self, message):
         if len(self.players) < 3:
             await message.channel.send('Cannot start: the game should have at least 3 players')
+            self.running = False
             return
         if not hasattr(self, 'QUESTIONS'):
             await message.channel.send('Cannot start: the questions have not been loaded yet. Please wait a moment.')
+            self.running = False
             return
         # Set up the list of questions
         self.questions = self.QUESTIONS[:]
@@ -109,6 +116,23 @@ class Snarkback(Game):
                     await self.bot.main_channel.send('*Currently waiting for the following players to reply to prompts: %s*' % ', '.join([p.user.mention for p in waiting]))
                     return
             await self.bot.main_channel.send('*Not currently waiting for anyone to make a decision.*')
+
+
+
+    async def sb_timer(self, message):
+        '''Turn on timer mode'''
+        if (await self.check_owner(message)):
+            # For now, the host is allowed to change the timer settings mid-game; they'll
+            # go into effect the next time something happens that would require a timer.
+            self.timed = True
+            await self.bot.main_channel.send('*Timer mode has been turned on.')
+
+            
+    async def sb_notimer(self, message):
+        '''Turn off timer mode'''
+        if (await self.check_owner(message)):
+            self.timed = False
+            await self.bot.main_channel.send('*Timer mode has been turned off.')
 
 
 
@@ -156,6 +180,9 @@ class Snarkback(Game):
         await self.bot.main_channel.send('**Round %d has begun!** All players, please check your DMs and reply to the prompts using "sb snark [reply]"' % self.round)
         if self.round == 3:
             await self.bot.main_channel.send('Everyone gets the same prompt!\n**Prompt:** %s' % self.prompts[0])
+        if self.timed:
+            # Start the timer if necessary
+            self.timer_task = asyncio.create_task(self.timer('Time remaining to respond to prompts', PROMPT_TIMER, self.end_prompt), name='Prompt Timer')
         for player in self.players:
             player.snarks = []
             player.votes = []
@@ -163,8 +190,38 @@ class Snarkback(Game):
 
 
 
+    async def timer(self, msg, delay, after):
+        message = self.bot.main_channel.send('%s: **%d** seconds' % (msg, delay))
+        loop = asyncio.get_running_loop()
+        start = loop.time()
+        try:
+            while True:
+                # Update the clock every 1 second.
+                await asyncio.sleep(1)
+                remaining = max(0, delay - int(round(loop.time() - start)))
+                await message.edit(content = '%s: **%d** seconds' % (msg, remaining))
+                if remaining == 0:
+                    # Time is up, use the after() coroutine to move things along
+                    await message.delete()
+                    await message.edit(content = 'Time\'s up!')
+                    await after()
+                    return
+        except asyncio.CancelledError:
+            # We're not waiting on anyone else
+            await message.delete()
+            raise
+            
+
+
+
     async def next_prompt(self, player):
         await player.user.send('**Your latest prompt:** %s' % player.prompts[len(player.snarks)])
+
+    async def end_prompt(self):
+        if not self.snarks:
+            self.shuffle_snarks()
+            await self.bot.main_channel.send('Thanks for your awesome replies! Now let\'s start voting!')
+            await self.next_vote()
 
 
 
@@ -198,9 +255,12 @@ class Snarkback(Game):
                 await self.next_prompt(player)
             elif all([len(p.snarks) == len(p.prompts) for p in self.players]):
                 if not self.snarks:
-                    self.shuffle_snarks()
-                    await self.bot.main_channel.send('Thanks for your awesome replies! Now let\'s start voting!')
-                    await self.next_vote()
+                    if self.timer_task:
+                        # Stop the timer if it's running
+                        if not self.timer_task.done():
+                            self.timer_task.cancel()
+                        self.timer_task = None
+                    await self.end_prompt()
 
 
 
@@ -211,6 +271,10 @@ class Snarkback(Game):
 
 
     def shuffle_snarks(self):
+        # Add `None` to unanswered prompts if necessary
+        for player in self.players:
+            while len(player.prompts) < len(player.snarks):
+                player.prompts.append(None)
         # Shuffle everyone's replies and put them in the list
         for prompt in self.prompts:
             snarks = []
@@ -265,6 +329,9 @@ where [num] is the integer number of the snark. People who are not part of the g
                 p.num_votes = num_votes
         self.audience_votes = []
         self.voting = True # Turn on voting
+        if self.timed:
+            # Start the timer if necessary
+            self.timer_task = asyncio.create_task(self.timer('Time remaining to vote', VOTING_TIMER, self.end_voting), name='Voting Timer')
 
 
 
@@ -318,13 +385,23 @@ where [num] is the integer number of the snark. People who are not part of the g
             await message.channel.send('Thank you for voting!')
             if need_more:
                 await message.channel.send('Please cast another vote.')
-            elif self.voting:
+            elif all([len(p.votes) == p.num_votes for p in self.players]):
                 # Check if we're finally done
-                if all([len(p.votes) == p.num_votes for p in self.players]):
-                    self.voting = False
-                    await self.tabulate_votes()
-                    await self.next_vote()
+                if self.voting:
+                    if self.timer_task:
+                        # Stop the timer if it's running
+                        if not self.timer_task.done():
+                            self.timer_task.cancel()
+                        self.timer_task = None
+                    await self.end_voting()
 
+
+
+    async def end_voting(self):
+        if self.voting:
+            self.voting = False
+            await self.tabulate_votes()
+            await self.next_vote()
 
 
 
