@@ -61,6 +61,8 @@ class Snarkback(Game):
             if isinstance(data, bytes):
                 data = data.decode()
             self.QUESTIONS = data.strip().splitlines()
+            if self.owner:
+                await self.bot.main_channel.send('*Snarkback prompts have been loaded!*')
         except:
             await self.bot.main_channel.send('*Error loading Snarkback prompts!!*')
 

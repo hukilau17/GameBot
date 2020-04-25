@@ -643,7 +643,7 @@ class SecretHitler(Game):
                                       'head coach' if self.amc_mode else 'president',
                                       'deputy coach' if self.amc_mode else 'chancellor'))
         # Special messages if necessary
-        if self.reject_counter == 2:
+        if self.election_tracker == 2:
             await self.bot.main_channel.send('**Warning: A random %s will be %s if this vote fails.**' % \
                                              ('problem' if self.amc_mode else 'policy',
                                               'solved' if self.amc_mode else 'enacted'))
