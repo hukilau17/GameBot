@@ -591,11 +591,11 @@ class SecretHitler(Game):
         N = len(self.players)
         n = N_FASCISTS[N]
         roles = []
-        for i in range(N-n-1):
+        for i in range(N-n):
             roles.append((LIBERAL, LIBERAL))
         for i in range(n-1):
             roles.append((FASCIST, FASCIST))
-        roles.append((FASCIST, HITLER))
+        roles.append((HITLER, FASCIST))
         # Randomly assign them to players
         random.shuffle(roles)
         for player, (role, party) in zip(self.players, roles):
