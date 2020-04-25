@@ -205,7 +205,7 @@ class Snarkback(Game):
 
 
     async def sb_form(self, message):
-        '''Get the Google form for submitting custom quesetions'''
+        '''Get the Google form for submitting custom questions'''
         await message.channel.send(os.getenv('GAMEBOT_SB_FORM', 'Oops, couldn\'t find the form'))
 
 
@@ -287,7 +287,7 @@ where [num] is the integer number of the snark. People who are not part of the g
             except (AssertionError, ValueError):
                 await message.channel.send('Syntax: sb vote [integer_number]')
                 return
-            if not (0 <= index <= len(self.current_snark[1:])):
+            if not (0 <= vote <= len(self.current_snark[1:])):
                 await message.channel.send('Error: invalid snark number')
                 return
             if player:
