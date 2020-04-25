@@ -25,10 +25,10 @@ class GameBot(discord.Client):
         if self.main_channel is None:
             self.main_channel = discord.utils.get(self.get_all_channels(), id=int(os.getenv('GAMEBOT_DEFAULT_CHANNEL')))
         if (not self.connected) or any([game.running for game in self.games]):
-            await self.main_channel.send('%s is now online' % self.user.mention)
-            self.connected = True
             for game in self.games:
                 await game.setup()
+            await self.main_channel.send('%s is now online' % self.user.mention)
+            self.connected = True
 
 
     async def on_message(self, message):

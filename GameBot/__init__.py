@@ -11,8 +11,9 @@ from GameBot.bot import GameBot
 from GameBot.avalon import Avalon
 from GameBot.liars_dice import LiarsDice
 from GameBot.secret_hitler import SecretHitler
+from GameBot.snarkback import Snarkback
 
-games = [Avalon, LiarsDice, SecretHitler]
+games = [Avalon, LiarsDice, SecretHitler, Snarkback]
 
 if __name__ == '__main__':
     client = GameBot(games, debug=True)
