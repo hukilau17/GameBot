@@ -657,7 +657,10 @@ Lady of the Lake - a card used to learn the alignment of another player''')
                     role_names = match.group(2)
                     merge_count = role_names.count('/') + 1
                     for role_name in role_names.split('/'):
-                        role_id = ROLE_NAMES.index(role_name)
+                        try:
+                            role_id = ROLE_NAMES.index(role_name)
+                        except ValueError:
+                            break
                         good_role = (Role(role_id) in GOOD_ROLES)
                         win_bool = (good_won == good_role)
                         stats.append((user_id, role_id, win_bool, merge_count, timestamp))

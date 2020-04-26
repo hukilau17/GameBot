@@ -446,7 +446,7 @@ where [num] is the integer number of the snark. People who are not part of the g
                 embed.add_field(name='Votes', value=', '.join([u.mention for i, u in data]))
             embed.add_field(name='Score', value='**%d**' % score, inline=False)
             if total:
-                embed.add_field(name='', value='*Total Snarkery!*') # Yes it's dumb, I know
+                embed.add_field(name='Bonus', value='*Total Snarkery!*') # Yes it's dumb, I know
             results.append((embed, score))
         # Sort the lines and print them out one by one
         results.sort(key = lambda x: x[1])
