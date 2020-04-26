@@ -269,12 +269,12 @@ class Game(object):
             return
         start = message.content.find('```')
         if start == -1:
-            await message.channel.send('Syntax: av debug ```[code]```')
+            await message.channel.send('Syntax: %s debug ```[code]```' % self.prefix)
             return
         start += 3
         end = message.content.find('```', start)
         if end == -1:
-            await message.channel.send('Syntax: av debug ```[code]```')
+            await message.channel.send('Syntax: %s debug ```[code]```' % self.prefix)
             return
         code = message.content[start:end]
         outp = io.StringIO()

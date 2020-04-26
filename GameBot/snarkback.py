@@ -24,8 +24,8 @@ Player = recordclass.recordclass('Player', 'user score round_score prompts snark
 
 
 MAX_SNARK_SIZE = 50 # The maximum length of a reply to a prompt
-PROMPT_TIMER = 60 # The timer for a prompt (if timers are turned on)
-VOTING_TIMER = 15 # The timer for voting (if timers are turned on)
+PROMPT_TIMER = 90 # The timer for a prompt (if timers are turned on)
+VOTING_TIMER = 20 # The timer for voting (if timers are turned on)
 
 
 
@@ -239,19 +239,18 @@ class Snarkback(Game):
         message = (await self.bot.main_channel.send('%s: **%d** seconds' % (msg, delay)))
         loop = asyncio.get_running_loop()
         start = loop.time()
+        remaining = delay
         try:
-            while True:
-                # Update the clock every 1 second.
-                await asyncio.sleep(1)
-                remaining = max(0, delay - int(round(loop.time() - start)))
+            while remaining:
+                # Update the clock every 5 seconds.
+                await asyncio.sleep(5)
+                remaining = max(0, delay - 5 * int(round((loop.time() - start) / 5.0)))
                 await message.edit(content = '%s: **%d** seconds' % (msg, remaining))
-                if remaining == 0:
-                    # Time is up, use the after coroutine to move things along
-                    await message.delete()
-                    await message.edit(content = 'Time\'s up!')
-                    if after:
-                        await after
-                    return
+            # Time is up, use the after coroutine to move things along
+            await message.delete()
+            if after:
+                await after
+            return
         except asyncio.CancelledError:
             # We're not waiting on anyone else
             await message.delete()
