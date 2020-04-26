@@ -82,6 +82,42 @@ class Snarkback(Game):
         # Make a public announcement
         await self.bot.main_channel.send('The game has now been started!')
         await self.begin_round()
+        
+
+
+
+    async def gb_leave(self, message):
+        '''Leave a game'''
+        # Override to allow leaving the game after it has started
+        if (await self.check_game(message)):
+            # Leave is the same thing as cancel if the game is running and you're the game owner
+            if self.running:
+                if self.owner and (message.author == self.owner.user):
+                    await self.gb_cancel(message)
+                    return
+            # Make sure we're currently part of the game
+            player = self.find_player(message.author)
+            if not player:
+                await message.channel.send('You are not part of this game.')
+                return
+            if self.running:
+                if not (await self.askyesno('Are you sure you want to leave the game? You will not be able to rejoin later.', message.author, message.channel)):
+                    return
+            if player in self.players:
+                # Remove the player
+                self.players.remove(player)
+                # Make a public announcement
+                await self.bot.main_channel.send('%s has left the game of %s.' % (message.author.mention, self.name))
+                if self.running:
+                    if len(self.players) < 3:
+                        await self.bot.main_channel.send('The game has been canceled because there are too few players.')
+                        self.running = False
+                        self.owner = None
+                    else:
+                        # Check for things
+                        await self.check_for_snarks()
+                        await self.check_for_votes()
+
 
 
 
@@ -118,6 +154,13 @@ class Snarkback(Game):
                     await self.bot.main_channel.send('*Currently waiting for the following players to reply to prompts: %s*' % ', '.join([p.user.mention for p in waiting]))
                     return
             await self.bot.main_channel.send('*Not currently waiting for anyone to make a decision.*')
+
+
+
+
+    async def sb_form(self, message):
+        '''Get the Google form for submitting custom questions'''
+        await message.channel.send(os.getenv('GAMEBOT_SB_FORM', 'Oops, couldn\'t find the form'))
 
 
 
@@ -256,28 +299,28 @@ class Snarkback(Game):
             player.snarks.append(snark)
             if len(player.snarks) < len(player.prompts):
                 await self.next_prompt(player)
-            elif all([len(p.snarks) == len(p.prompts) for p in self.players]):
-                if not self.snarks:
-                    if self.timer_task:
-                        # Stop the timer if it's running
-                        if not self.timer_task.done():
-                            self.timer_task.cancel()
-                        self.timer_task = None
-                    await self.end_prompt()
+            else:
+                await self.check_for_snarks()
 
 
 
-    async def sb_form(self, message):
-        '''Get the Google form for submitting custom questions'''
-        await message.channel.send(os.getenv('GAMEBOT_SB_FORM', 'Oops, couldn\'t find the form'))
+    async def check_for_snarks(self):
+        if all([p.snarks and (len(p.snarks) == len(p.prompts)) for p in self.players]):
+            if not self.snarks:
+                if self.timer_task:
+                    # Stop the timer if it's running
+                    if not self.timer_task.done():
+                        self.timer_task.cancel()
+                    self.timer_task = None
+                await self.end_prompt()
 
 
 
     def shuffle_snarks(self):
         # Add `None` to unanswered prompts if necessary
         for player in self.players:
-            while len(player.prompts) < len(player.snarks):
-                player.prompts.append(None)
+            while len(player.snarks) < len(player.prompts):
+                player.snarks.append(None)
         # Shuffle everyone's replies and put them in the list
         for prompt in self.prompts:
             snarks = []
@@ -308,14 +351,33 @@ class Snarkback(Game):
         # Put together the snark embed
         embed = discord.Embed(title=self.name, description=prompt, type='rich', colour=discord.Colour.blue())
         nonvoting = []
+        blank = []
         for i, (reply, player) in enumerate(replies, 1):
-            embed.add_field(name='%d.' % i, value=reply, inline=False)
+            if reply is None:
+                reply = '<NO RESPONSE>'
+                blank.append(i)
+            embed.add_field(name='**%d.**' % i, value=reply, inline=False)
             if self.round != 3:
                 nonvoting.append(player)
         await self.bot.main_channel.send(embed=embed)
         # Check for a jinx
         if (self.round != 3) and (replies[0][0] == replies[1][0]):
-            await self.bot.main_channel.send('**Jinx!** Both snarks are exactly the same. Nobody gets any points.')
+            await self.bot.main_channel.send('**Jinx!** Both snarks (%s and %s) are exactly the same. Nobody gets any points.' % \
+                                             (replies[0][1].user.mention, replies[1][1].user.mention))
+            await self.next_vote()
+            return
+        # Check for a no-contest
+        if (self.round != 3) and blank:
+            if len(blank) == 2:
+                await self.bot.main_channel.send('Neither %s nor %s replied to the prompt, so nobody gets any points.' % \
+                                                 (replies[0][1].user.mention, replies[1][1].user.mention))
+            else:
+                b = replies[blank[0] - 1][1]
+                a = replies[2 - blank[0]][1]
+                points = 1000 * self.round
+                await self.bot.main_channel.send('%s replied, but %s did not, so %s gets the full %d points.' % \
+                                                 (a.user.mention, b.user.mention, a.user.mention, points))
+                a.round_score += points
             await self.next_vote()
             return
         await self.bot.main_channel.send('Everyone: please vote on a reply to the prompt. Do this by DMing "sb vote [num]" to %s, \
@@ -391,15 +453,21 @@ where [num] is the integer number of the snark. People who are not part of the g
             await message.channel.send('Thank you for voting!')
             if need_more:
                 await message.channel.send('Please cast another vote.')
-            elif all([len(p.votes) == p.num_votes for p in self.players]):
-                # Check if we're finally done
-                if self.voting:
-                    if self.timer_task:
-                        # Stop the timer if it's running
-                        if not self.timer_task.done():
-                            self.timer_task.cancel()
-                        self.timer_task = None
-                    await self.end_voting()
+            else:
+                await self.check_for_votes()
+
+
+
+    async def check_for_votes(self):
+        if all([len(p.votes) == p.num_votes for p in self.players]):
+            # Check if we're finally done
+            if self.voting:
+                if self.timer_task:
+                    # Stop the timer if it's running
+                    if not self.timer_task.done():
+                        self.timer_task.cancel()
+                    self.timer_task = None
+                await self.end_voting()
 
 
 
@@ -413,7 +481,10 @@ where [num] is the integer number of the snark. People who are not part of the g
 
     async def tabulate_votes(self):
         # Figure out who won and how many points to award
-        total_votes = sum([p.num_votes - p.votes.count(0) for p in self.players]) + len(self.audience_votes)
+        total_votes = sum([len(p.votes) - p.votes.count(0) for p in self.players]) + len(self.audience_votes)
+        if not total_votes:
+            await self.bot.main_channel.send('Nobody voted, so *nobody gets any points!*')
+            return
         results = []
         for i, (reply, player) in enumerate(self.current_snark[1:], 1):
             # Find everyone who voted for this snark
@@ -425,26 +496,26 @@ where [num] is the integer number of the snark. People who are not part of the g
                 if v == i:
                     voters.append(u)
             # Find out the score
-            total = False
+            bonus = None
             score = 1000.0 * self.round * len(voters) / total_votes
             if self.round != 3:
                 # Add a bonus if someone has *all* the votes!
                 if len(voters) == total_votes:
                     score += 250.0 * self.round
-                    total = True
+                    bonus = '*Total Snarkery!*' # Yes it's dumb, I know
                 elif len(voters) > total_votes * 0.5:
                     score += 100.0 * self.round
-                    total = True
+                    bonus = 'Winner!'
             score = int(round(score, -1))
             player.round_score += score
             # Add a line to the results
             embed = discord.Embed(title=self.name, description=reply, type='rich', colour=discord.Colour.blue())
-            embed.add_field(name='Player', value=player.user.mention, inline=False)
+            embed.add_field(name='**Player**', value=player.user.mention)
+            embed.add_field(name='**Score**', value='**%d**' % score)
+            if bonus:
+                embed.add_field(name='**Bonus**', value=bonus)
             if voters:
-                embed.add_field(name='Votes', value=', '.join([u.mention for u in voters]))
-            embed.add_field(name='Score', value='**%d**' % score, inline=False)
-            if total:
-                embed.add_field(name='Bonus', value='*Total Snarkery!*') # Yes it's dumb, I know
+                embed.add_field(name='**Votes**', value=', '.join([u.mention for u in voters]), inline=False)
             results.append((embed, score))
         # Sort the lines and print them out one by one
         results.sort(key = lambda x: x[1])
