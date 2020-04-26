@@ -370,9 +370,6 @@ where [num] is the integer number of the snark. People who are not part of the g
                     else:
                         await message.channel.send('Error: you have already finished voting')
                     return
-                if (vote in player.votes) and (vote != 0):
-                    await message.channel.send('Error: you have already voted for that option. Please pick a different one.')
-                    return
                 if (vote != 0) and (self.current_snark[vote][1] == player):
                     await message.channel.send('Error: you cannot vote for your own reply')
                     return
@@ -416,34 +413,35 @@ where [num] is the integer number of the snark. People who are not part of the g
 
     async def tabulate_votes(self):
         # Figure out who won and how many points to award
-        total_votes = sum([p.num_votes for p in self.players]) + len(self.audience_votes)
+        total_votes = sum([p.num_votes - p.votes.count(0) for p in self.players]) + len(self.audience_votes)
         results = []
         for i, (reply, player) in enumerate(self.current_snark[1:], 1):
             # Find everyone who voted for this snark
-            data = []
+            voters = []
             for p in self.players:
-                if i in p.votes:
-                    data.append((p.votes.index(i) + 1, p.user))
+                for j in range(p.votes.count(i)):
+                    voters.append(p.user) # May contain duplicates if this is round 3
             for v, u in self.audience_votes:
                 if v == i:
-                    data.append((2, u))
+                    voters.append(u)
             # Find out the score
             total = False
+            score = 1000.0 * self.round * len(voters) / total_votes
             if self.round != 3:
-                score = 1000.0 * self.round * len(data) / total_votes
                 # Add a bonus if someone has *all* the votes!
-                if all([p.votes[0] in (0, i) for p in self.players if p.votes]) and all([v == i for v in self.audience_votes]):
+                if len(voters) == total_votes:
+                    score += 250.0 * self.round
+                    total = True
+                elif len(voters) > total_votes * 0.5:
                     score += 100.0 * self.round
                     total = True
-            else:
-                score = 1500.0 * sum([4-i for i, u in data]) / total_votes
-            score = int(round(score))
+            score = int(round(score, -1))
             player.round_score += score
             # Add a line to the results
             embed = discord.Embed(title=self.name, description=reply, type='rich', colour=discord.Colour.blue())
             embed.add_field(name='Player', value=player.user.mention, inline=False)
-            if data:
-                embed.add_field(name='Votes', value=', '.join([u.mention for i, u in data]))
+            if voters:
+                embed.add_field(name='Votes', value=', '.join([u.mention for u in voters]))
             embed.add_field(name='Score', value='**%d**' % score, inline=False)
             if total:
                 embed.add_field(name='Bonus', value='*Total Snarkery!*') # Yes it's dumb, I know

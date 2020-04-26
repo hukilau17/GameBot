@@ -557,7 +557,7 @@ class LiarsDice(Game):
                             msg += ' and '
                         else:
                             msg += ', so '
-                        msg += 'everyone else %s a die' % ('loses' if self.n_dice_start > self.n_dice_end else 'gains')
+                        msg += 'everyone but %s %s a die' % (current.user.mention, 'loses' if self.n_dice_start > self.n_dice_end else 'gains')
                         losing = [p for p in self.players if p != current]
                     else:
                         msg += '.'
