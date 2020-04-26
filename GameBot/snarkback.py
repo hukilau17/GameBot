@@ -108,7 +108,7 @@ class Snarkback(Game):
             if self.snarks:
                 waiting = [p for p in self.players if len(p.votes) < p.num_votes]
                 if waiting:
-                    await self.bot.main_channel.send('*Currently waiting for %d players to vote.*' % len(waiting))
+                    await self.bot.main_channel.send('*Currently waiting for %d player%s to vote.*' % (len(waiting), '' if len(waiting) == 1 else 's'))
                     for p in waiting:
                         await p.user.send('*Waiting for you to vote!*')
                     return
@@ -193,7 +193,7 @@ class Snarkback(Game):
 
 
     async def timer(self, msg, delay, after):
-        message = self.bot.main_channel.send('%s: **%d** seconds' % (msg, delay))
+        message = (await self.bot.main_channel.send('%s: **%d** seconds' % (msg, delay)))
         loop = asyncio.get_running_loop()
         start = loop.time()
         try:
@@ -375,6 +375,10 @@ where [num] is the integer number of the snark. People who are not part of the g
                     return
                 player.votes.append(vote)
                 need_more = (len(player.votes) < player.num_votes)
+                if need_more and (vote == 0):
+                    # Just abstain until we don't need to vote anymore
+                    player.votes.extend( [0] * (player.num_votes - len(player.votes)) )
+                    need_more = False
             else:
                 # Audience voting
                 if any([v[1] == message.author for v in self.audience_votes]):
@@ -432,7 +436,6 @@ where [num] is the integer number of the snark. People who are not part of the g
                 score = 1500.0 * sum([4-i for i, u in data]) / total_votes
             score = int(round(score))
             player.round_score += score
-            data.append(score)
             # Add a line to the results
             embed = discord.Embed(title=self.name, description=reply, type='rich', colour=discord.Colour.blue())
             embed.add_field(name='Player', value=player.user.mention, inline=False)
@@ -457,6 +460,9 @@ where [num] is the integer number of the snark. People who are not part of the g
         await self.bot.main_channel.send('**Round %d has ended!** The results are...' % self.round)
         async with self.bot.main_channel.typing():
             await asyncio.sleep(5) # Pause for dramatic effect
+        for p in self.players:
+            p.score += p.round_score
+            p.round_score = 0
         players = sorted(self.players, key = lambda x: x.score, reverse=True)
         await self.bot.main_channel.send('\n'.join(['%s: %d' % (player.user.mention, player.score) for player in players]))
         await self.begin_round() # Start the next round
