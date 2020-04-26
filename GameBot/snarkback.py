@@ -184,7 +184,7 @@ class Snarkback(Game):
             await self.bot.main_channel.send('Everyone gets the same prompt!\n**Prompt:** %s' % self.prompts[0])
         if self.timed:
             # Start the timer if necessary
-            self.timer_task = asyncio.create_task(self.timer('Time remaining to respond to prompts', PROMPT_TIMER, self.end_prompt), name='Prompt Timer')
+            self.timer_task = asyncio.create_task(self.timer('Time remaining to respond to prompts', PROMPT_TIMER, self.end_prompt()), name='Prompt Timer')
         for player in self.players:
             player.snarks = []
             player.votes = []
@@ -203,10 +203,11 @@ class Snarkback(Game):
                 remaining = max(0, delay - int(round(loop.time() - start)))
                 await message.edit(content = '%s: **%d** seconds' % (msg, remaining))
                 if remaining == 0:
-                    # Time is up, use the after() coroutine to move things along
+                    # Time is up, use the after coroutine to move things along
                     await message.delete()
                     await message.edit(content = 'Time\'s up!')
-                    await after()
+                    if after:
+                        await after
                     return
         except asyncio.CancelledError:
             # We're not waiting on anyone else
@@ -326,14 +327,16 @@ where [num] is the integer number of the snark. People who are not part of the g
         else:
             num_votes = 1
         for p in self.players:
-            if p not in nonvoting:
-                p.votes = []
+            p.votes = []
+            if p in nonvoting:
+                p.num_votes = 0
+            else:
                 p.num_votes = num_votes
         self.audience_votes = []
         self.voting = True # Turn on voting
         if self.timed:
             # Start the timer if necessary
-            self.timer_task = asyncio.create_task(self.timer('Time remaining to vote', VOTING_TIMER, self.end_voting), name='Voting Timer')
+            self.timer_task = asyncio.create_task(self.timer('Time remaining to vote', VOTING_TIMER, self.end_voting()), name='Voting Timer')
 
 
 
