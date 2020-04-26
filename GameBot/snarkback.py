@@ -23,7 +23,7 @@ Player = recordclass.recordclass('Player', 'user score round_score prompts snark
 
 
 
-MAX_SNARK_SIZE = 32 # The maximum length of a reply to a prompt
+MAX_SNARK_SIZE = 50 # The maximum length of a reply to a prompt
 PROMPT_TIMER = 60 # The timer for a prompt (if timers are turned on)
 VOTING_TIMER = 15 # The timer for voting (if timers are turned on)
 
@@ -444,7 +444,7 @@ where [num] is the integer number of the snark. People who are not part of the g
             embed.add_field(name='Score', value='**%d**' % score, inline=False)
             if total:
                 embed.add_field(name='', value='*Total Snarkery!*') # Yes it's dumb, I know
-            results.append((line, score))
+            results.append((embed, score))
         # Sort the lines and print them out one by one
         results.sort(key = lambda x: x[1])
         await self.bot.main_channel.send('And the results are...')
