@@ -227,7 +227,7 @@ class Snarkback(Game):
             await self.bot.main_channel.send('Everyone gets the same prompt!\n**Prompt:** %s' % self.prompts[0])
         if self.timed:
             # Start the timer if necessary
-            self.timer_task = asyncio.create_task(self.timer('Time remaining to respond to prompts', PROMPT_TIMER, self.end_prompt()), name='Prompt Timer')
+            self.timer_task = asyncio.create_task(self.timer('Time remaining to respond to prompts', PROMPT_TIMER, self.end_prompt()))
         for player in self.players:
             player.snarks = []
             player.votes = []
@@ -398,7 +398,7 @@ where [num] is the integer number of the snark. People who are not part of the g
         self.voting = True # Turn on voting
         if self.timed:
             # Start the timer if necessary
-            self.timer_task = asyncio.create_task(self.timer('Time remaining to vote', VOTING_TIMER, self.end_voting()), name='Voting Timer')
+            self.timer_task = asyncio.create_task(self.timer('Time remaining to vote', VOTING_TIMER, self.end_voting()))
 
 
 
