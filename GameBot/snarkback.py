@@ -24,8 +24,13 @@ Player = recordclass.recordclass('Player', 'user score round_score prompts snark
 
 
 MAX_SNARK_SIZE = 50 # The maximum length of a reply to a prompt
-PROMPT_TIMER = 90 # The timer for a prompt (if timers are turned on)
-VOTING_TIMER = 20 # The timer for voting (if timers are turned on)
+
+# Timer settings
+PROMPT_TIMER = 90 # The timer for a prompt
+FINAL_PROMPT_TIMER = 45 # The timer for a prompt in round three
+VOTING_TIMER = 20 # The timer for voting
+FINAL_VOTING_TIMER = 40 # The timer for voting in round three
+WARNING_TIME = 10 # The time at which a warning message is DMed to everyone we're waiting on
 
 
 
@@ -49,8 +54,10 @@ class Snarkback(Game):
         self.audience_votes = []    # List of votes received from the audience. Each is the index of a snark.
         self.current_snark  = None  # The snark currently being voted on
         self.voting         = False # True if the voting for this prompt is currently open.
-        self.timed          = False # True if this is a timed game
+        self.timed          = True  # True if this is a timed game
         self.timer_task     = None  # The current timer task, if any
+        self.delay_time     = None  # The current delay set on the timer
+        self.starting_time  = None  # The time when the timer started, if any
 
 
     async def setup(self):
@@ -128,32 +135,43 @@ class Snarkback(Game):
             info = '**Current standings:**\n%s\n' % '\n'.join(['%s: %d' % (player.user.name, player.score) for player in players])
             info += 'Game owner: %s\n' % self.owner.user.mention
             if self.round:
-                info += 'Current round: %d' % self.round
+                info += 'Current round: %d\n' % self.round
             else:
-                info += '*The game has not started yet.*'
+                info += '*The game has not started yet.*\n'
+            if self.timed:
+                info += '*This is a timed game.*'
+            else:
+                info += '*This is not a timed game.*'
             await message.channel.send(info)
             if self.running:
                 await self.sb_poke(message)
+
+
+    def waiting(self):
+        # Get the list of people we're waiting for
+        if self.snarks:
+            return [p for p in self.players if len(p.votes) < p.num_votes]
+        else:
+            return [p for p in self.players if len(p.snarks) < len(p.prompts)]
 
 
 
     async def sb_poke(self, message):
         '''Pokes people who need to make a decision'''
         if (await self.check_running(message)):
-            waiting = []
-            if self.snarks:
-                waiting = [p for p in self.players if len(p.votes) < p.num_votes]
+            if not self.timed:
+                # `poke` is a no-op in timed mode
+                # (since it is annoying and unnecessary)
+                waiting = self.waiting()
                 if waiting:
-                    await self.bot.main_channel.send('*Currently waiting for %d player%s to vote.*' % (len(waiting), '' if len(waiting) == 1 else 's'))
-                    for p in waiting:
-                        await p.user.send('*Waiting for you to vote!*')
-                    return
-            else:
-                waiting = [p for p in self.players if len(p.snarks) < len(p.prompts)]
-                if waiting:
-                    await self.bot.main_channel.send('*Currently waiting for the following players to reply to prompts: %s*' % ', '.join([p.user.mention for p in waiting]))
-                    return
-            await self.bot.main_channel.send('*Not currently waiting for anyone to make a decision.*')
+                    if self.snarks:
+                        await self.bot.main_channel.send('*Currently waiting for %d player%s to vote.*' % (len(waiting), '' if len(waiting) == 1 else 's'))
+                        for p in waiting:
+                            await p.user.send('*Waiting for you to vote!*')
+                    else:
+                        await self.bot.main_channel.send('*Currently waiting for the following players to reply to prompts: %s*' % ', '.join([p.user.mention for p in waiting]))
+                else:
+                    await self.bot.main_channel.send('*Not currently waiting for anyone to make a decision.*')
 
 
 
@@ -178,6 +196,25 @@ class Snarkback(Game):
         if (await self.check_owner(message)):
             self.timed = False
             await self.bot.main_channel.send('*Timer mode has been turned off.*')
+
+
+
+    async def sb_time(self, message):
+        '''Ask how much time is left'''
+        if (await self.check_running(message)):
+            if not self.timed:
+                await message.channel.send('There is no timer in this game.')
+            elif self.starting_time is None:
+                await message.channel.send('The clock is not currently running.')
+            else:
+                loop = asyncio.get_running_loop()
+                now = loop.time()
+                diff = max(self.delay_time - int(round(now - self.starting_time)), 0)
+                if diff == 0:
+                    await message.channel.send('Time is up!')
+                else:
+                    await message.channel.send('**%d** seconds remaining!' % diff)
+        
 
 
 
@@ -227,7 +264,8 @@ class Snarkback(Game):
             await self.bot.main_channel.send('Everyone gets the same prompt!\n**Prompt:** %s' % self.prompts[0])
         if self.timed:
             # Start the timer if necessary
-            self.timer_task = asyncio.create_task(self.timer('Time remaining to respond to prompts', PROMPT_TIMER, self.end_prompt()))
+            delay = (PROMPT_TIMER if self.round < 3 else FINAL_PROMPT_TIMER)
+            self.timer_task = asyncio.create_task(self.timer('Time remaining to respond to prompts', delay, self.end_prompt))
         for player in self.players:
             player.snarks = []
             player.votes = []
@@ -238,22 +276,29 @@ class Snarkback(Game):
     async def timer(self, msg, delay, after):
         message = (await self.bot.main_channel.send('%s: **%d** seconds' % (msg, delay)))
         loop = asyncio.get_running_loop()
-        start = loop.time()
-        remaining = delay
+        self.starting_time = loop.time()
+        remaining = self.delay_time = delay
+        warned = False
         try:
             while remaining:
                 # Update the clock every 5 seconds.
                 await asyncio.sleep(5)
-                remaining = max(0, delay - 5 * int(round((loop.time() - start) / 5.0)))
-                await message.edit(content = '%s: **%d** seconds' % (msg, remaining))
-            # Time is up, use the after coroutine to move things along
+                remaining = max(0, delay - 5 * int(round((loop.time() - self.starting_time) / 5.0)))
+                await message.edit(content = '%s: less than **%d** seconds' % (msg, remaining))
+                if (0 < remaining <= WARNING_TIME) and not warned:
+                    warned = True
+                    for p in self.waiting():
+                        await p.user.send('Hurry -- only **%d** seconds remaining!' % remaining)
+            # Time is up, use the after() coroutine to move things along
             await message.delete()
+            self.starting_time = self.delay_time = None
             if after:
-                await after
+                await after()
             return
         except asyncio.CancelledError:
             # We're not waiting on anyone else
             await message.delete()
+            self.starting_time = self.delay_time = None
             raise
             
 
@@ -335,6 +380,15 @@ class Snarkback(Game):
             player.snarks = []
 
 
+    def colour(self):
+        # Change the color between rounds
+        if self.round == 1:
+            return discord.Colour.blue()
+        if self.round == 2:
+            return discord.Colour.green()
+        return discord.Colour.red()
+
+
 
     async def next_vote(self):
         # Begin voting on the next snark
@@ -348,7 +402,7 @@ class Snarkback(Game):
         async with self.bot.main_channel.typing():
             await asyncio.sleep(5) # Pause for dramatic effect
         # Put together the snark embed
-        embed = discord.Embed(title=self.name, description=prompt, type='rich', colour=discord.Colour.blue())
+        embed = discord.Embed(title=self.name, description=prompt, type='rich', colour=self.colour())
         nonvoting = []
         blank = []
         for i, (reply, player) in enumerate(replies, 1):
@@ -359,12 +413,6 @@ class Snarkback(Game):
             if self.round != 3:
                 nonvoting.append(player)
         await self.bot.main_channel.send(embed=embed)
-        # Check for a jinx
-        if (self.round != 3) and (replies[0][0] == replies[1][0]):
-            await self.bot.main_channel.send('**Jinx!** Both snarks (%s and %s) are exactly the same. Nobody gets any points.' % \
-                                             (replies[0][1].user.mention, replies[1][1].user.mention))
-            await self.next_vote()
-            return
         # Check for a no-contest
         if (self.round != 3) and blank:
             if len(blank) == 2:
@@ -377,6 +425,12 @@ class Snarkback(Game):
                 await self.bot.main_channel.send('%s replied, but %s did not, so %s gets the full %d points.' % \
                                                  (a.user.mention, b.user.mention, a.user.mention, points))
                 a.round_score += points
+            await self.next_vote()
+            return
+        # Check for a jinx
+        if (self.round != 3) and (replies[0][0] == replies[1][0]):
+            await self.bot.main_channel.send('**Jinx!** Both snarks (%s and %s) are exactly the same. Nobody gets any points.' % \
+                                             (replies[0][1].user.mention, replies[1][1].user.mention))
             await self.next_vote()
             return
         await self.bot.main_channel.send('Everyone: please vote on a reply to the prompt. Do this by DMing "sb vote [num]" to %s, \
@@ -397,7 +451,8 @@ where [num] is the integer number of the snark. People who are not part of the g
         self.voting = True # Turn on voting
         if self.timed:
             # Start the timer if necessary
-            self.timer_task = asyncio.create_task(self.timer('Time remaining to vote', VOTING_TIMER, self.end_voting()))
+            delay = (VOTING_TIMER if self.round < 3 else FINAL_VOTING_TIMER)
+            self.timer_task = asyncio.create_task(self.timer('Time remaining to vote', delay, self.end_voting))
 
 
 
@@ -508,7 +563,7 @@ where [num] is the integer number of the snark. People who are not part of the g
             score = int(round(score, -1))
             player.round_score += score
             # Add a line to the results
-            embed = discord.Embed(title=self.name, description=reply, type='rich', colour=discord.Colour.blue())
+            embed = discord.Embed(title=self.name, description=reply, type='rich', colour=self.colour())
             embed.add_field(name='**Player**', value=player.user.mention)
             embed.add_field(name='**Score**', value='**%d**' % score)
             if bonus:
