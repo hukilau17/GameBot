@@ -3,7 +3,10 @@
 
 import discord
 import os
+import datetime
 import asyncio
+
+from GameBot.game import PING_DELAY
 
 
 
@@ -15,21 +18,36 @@ class GameBot(discord.Client):
         discord.Client.__init__(self)
         self.games = [cls(self) for cls in game_classes]
         self.main_channel = None # The default channel to post messages in
+        self.ping_channel = None # The default channel to ping
         self.last_ping = None # Keep a delay on pings in #off-topic so they don't flood it
         self.DEBUG = debug
         self.connected = False
         self.muted = []
+
+
+    def init_channels(self):
+        # Find the #game-corner and #game-talk channels
+        if self.main_channel is None:
+            self.main_channel = discord.utils.get(self.get_all_channels(), id=int(os.getenv('GAMEBOT_DEFAULT_CHANNEL')))
+        if self.ping_channel is None:
+            self.ping_channel = discord.utils.get(self.get_all_channels(), id=int(os.getenv('GAMEBOT_PING_CHANNEL')))
         
 
     async def on_ready(self):
-        # Find the main channel
-        if self.main_channel is None:
-            self.main_channel = discord.utils.get(self.get_all_channels(), id=int(os.getenv('GAMEBOT_DEFAULT_CHANNEL')))
+        self.init_channels()
         if (not self.connected) or any([game.running for game in self.games]):
             await self.main_channel.send('%s is now online' % self.user.mention)
             if not self.connected:
                 await asyncio.gather(*[game.setup() for game in self.games])
                 self.connected = True
+                if self.last_ping is None:
+                    # Find the last ping if any
+                    now = datetime.datetime.now()
+                    async for message in self.ping_channel.history(after = now - PING_DELAY, oldest_first=False):
+                        if message.author == self:
+                            # The only reason we ever post in #game-talk is to ping.
+                            self.last_ping = message.created_at
+                            break
 
 
     async def on_message(self, message):
@@ -37,9 +55,7 @@ class GameBot(discord.Client):
         # This bot does not reply to itself
         if message.author == self.user:
             return
-        # Find the main channel
-        if self.main_channel is None:
-            self.main_channel = discord.utils.get(self.get_all_channels(), id=int(os.getenv('GAMEBOT_DEFAULT_CHANNEL')))
+        self.init_channels()
         # Figure out which game, if any, the message is referring to
         content = message.content.lower()
         for game in self.games:

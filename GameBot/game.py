@@ -163,8 +163,7 @@ class Game(object):
             if message.guild:
                 role = discord.utils.get(message.guild.roles, id=int(os.getenv('GAMEBOT_ROLE_ID')))
                 self.bot.last_ping = now
-                ping_channel = discord.utils.get(self.bot.get_all_channels(), id=int(os.getenv('GAMEBOT_PING_CHANNEL')))
-                await ping_channel.send('%s: a game of %s has been created in %s!' % (role.mention, self.name, self.bot.main_channel.mention))
+                await self.bot.ping_channel.send('%s: a game of %s has been created in %s!' % (role.mention, self.name, self.bot.main_channel.mention))
                     
                 
     async def gb_cancel(self, message):

@@ -438,7 +438,7 @@ where [num] is the integer number of the snark. People who are not part of the g
                                          % self.bot.user.mention)
         # Set up everyone's voting data
         if self.round == 3:
-            num_votes = min(len(self.players) // 2, 3)
+            num_votes = 3
         else:
             num_votes = 1
         for p in self.players:
@@ -477,6 +477,9 @@ where [num] is the integer number of the snark. People who are not part of the g
                 return
             if not (0 <= vote <= len(self.current_snark[1:])):
                 await message.channel.send('Error: invalid snark number')
+                return
+            if (vote != 0) and (self.current_snark[vote][0] is None):
+                await message.channel.send('Error: you cannot vote for someone who did not reply')
                 return
             if player:
                 # Player voting
@@ -541,6 +544,8 @@ where [num] is the integer number of the snark. People who are not part of the g
             return
         results = []
         for i, (reply, player) in enumerate(self.current_snark[1:], 1):
+            if reply is None:
+                continue # Skip over replies that timed out
             # Find everyone who voted for this snark
             voters = []
             for p in self.players:

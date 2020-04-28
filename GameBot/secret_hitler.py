@@ -768,6 +768,16 @@ Please cast your votes **privately** by DMing either "sh ja" or "sh nein" to %s.
         await self.check_for_winner()
         await self.shuffle_policies()
         if self.running and (policy == FASCIST):
+            # Make any special announcements necessary
+            if self.fascist_policies == 3:
+                await self.bot.main_channel.send('**Warning: %ss will win if %s is elected %s.' % \
+                                                 (self.ROLE_NAMES[FASCIST], self.ROLE_NAMES[HITLER],
+                                                  'deputy coach' if self.amc_mode else 'chancellor'))
+            elif self.fascist_policies == 5:
+                await self.bot.main_channel.send('**Veto power has been unlocked!** In the future, the %s \
+may move to veto an agenda proposed by the %s by typing "sh veto".' % \
+                                                 ('deputy coach' if self.amc_mode else 'chancellor',
+                                                  'head coach' if self.amc_mode else 'president'))
             # Figure out if the President gets to use a special power
             power = self.board[self.fascist_policies - 1]
             if power == INVESTIGATE_LOYALTY:
@@ -783,11 +793,11 @@ Please cast your votes **privately** by DMing either "sh ja" or "sh nein" to %s.
                 # This one happens right away, since the president doesn't have to make a decision
                 await self.bot.main_channel.send('**%s:** *%s has looked at the top three %s in the deck.*' % \
                                                  (self.POWER_NAMES[power], self.president.user.mention,
-                                                  'policies' if self.amc_mode else 'problems'))
-                await self.president.user.send('**%s:** The top three %s in the deck are: %s.' % \
+                                                  'problems' if self.amc_mode else 'policies'))
+                await self.president.user.send('**%s:** The top three %s in the deck are: %s. (The first one is on top.)' % \
                                                (self.POWER_NAMES[power],
                                                 'problems' if self.amc_mode else 'policies',
-                                                ', '.join([self.POLICY_NAMES[i] for i in self.policy_deck[-3:]])))
+                                                ', '.join([self.POLICY_NAMES[i] for i in self.policy_deck[-1:-4:-1]])))
             elif power == EXECUTION:
                 await self.bot.main_channel.send('**%s:** %s, choose someone to %s using "sh %s".' % \
                                                  (self.POWER_NAMES[power], self.president.user.mention,
