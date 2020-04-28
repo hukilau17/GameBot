@@ -42,7 +42,7 @@ class GameBot(discord.Client):
                     # Find the last ping if any
                     now = datetime.datetime.utcnow()
                     async for message in self.ping_channel.history(after = now - PING_DELAY, oldest_first=False):
-                        if message.author == self:
+                        if message.author == self.user:
                             # The only reason we ever post in #game-talk is to ping.
                             self.last_ping = message.created_at
                             break
