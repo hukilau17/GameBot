@@ -158,7 +158,7 @@ class Game(object):
         # Make a public announcement
         await self.bot.main_channel.send('%s has just created an game of %s. To join, simply type "%s join".' % (message.author.mention, self.name, self.prefix))
         # Ping the #off-topic channel too if it's not too soon to do that
-        now = datetime.datetime.now()
+        now = datetime.datetime.utcnow()
         if (self.bot.last_ping is None) or (now - self.bot.last_ping >= PING_DELAY):
             if message.guild:
                 role = discord.utils.get(message.guild.roles, id=int(os.getenv('GAMEBOT_ROLE_ID')))

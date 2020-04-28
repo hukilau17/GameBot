@@ -38,16 +38,16 @@ class GameBot(discord.Client):
         if (not self.connected) or any([game.running for game in self.games]):
             await self.main_channel.send('%s is now online' % self.user.mention)
             if not self.connected:
-                await asyncio.gather(*[game.setup() for game in self.games])
-                self.connected = True
                 if self.last_ping is None:
                     # Find the last ping if any
-                    now = datetime.datetime.now()
+                    now = datetime.datetime.utcnow()
                     async for message in self.ping_channel.history(after = now - PING_DELAY, oldest_first=False):
                         if message.author == self:
                             # The only reason we ever post in #game-talk is to ping.
                             self.last_ping = message.created_at
                             break
+                await asyncio.gather(*[game.setup() for game in self.games])
+                self.connected = True
 
 
     async def on_message(self, message):
