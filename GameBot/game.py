@@ -12,6 +12,7 @@ import asyncio
 
 PING_DELAY = datetime.timedelta(hours=1) # One-hour delay for pinging #off-topic
 VOTEKICK_MIN = 4 # Four votes required to force an inactive game to end
+STARTING_DELAY = 60 * 20 # If the game is not started within 20 minutes of its creation time, delete it
 
 
 
@@ -55,6 +56,7 @@ class Game(object):
                 help_strings.append('%s %s: %s' % (self.prefix, name, func.__doc__))
         help_strings.sort()
         self.help = '**%s bot commands:**\n%s' % (self.name, '\n'.join(help_strings))
+        self.starting_timer_task = None
 
 
 
@@ -164,6 +166,19 @@ class Game(object):
                 role = discord.utils.get(message.guild.roles, id=int(os.getenv('GAMEBOT_ROLE_ID')))
                 self.bot.last_ping = now
                 await self.bot.ping_channel.send('%s: a game of %s has been created in %s!' % (role.mention, self.name, self.bot.main_channel.mention))
+        # Start the timer
+        self.starting_timer_task = asyncio.create_task(self.starting_timer())
+
+
+
+    async def starting_timer(self):
+        # Start a very long timer to cancel the game after a certain amount (20 minutes) of delay between creation and start time
+        await asyncio.sleep(STARTING_DELAY)
+        if not self.running:
+            self.owner = None
+            await self.bot.main_channel.send('*The current game of %s has timed out without starting. It has now been canceled.*' % self.name)
+        
+        
                     
                 
     async def gb_cancel(self, message):
@@ -243,6 +258,12 @@ class Game(object):
                 return
             self.running = True
             await self.start(message)
+            if self.running:
+                # Stop the timer
+                if self.starting_timer_task:
+                    if not self.starting_timer_task.done():
+                        self.starting_timer_task.cancel()
+                    self.starting_timer_task = None
         
 
     async def gb_ping(self, message):

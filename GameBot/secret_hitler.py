@@ -770,7 +770,7 @@ Please cast your votes **privately** by DMing either "sh ja" or "sh nein" to %s.
         if self.running and (policy == FASCIST):
             # Make any special announcements necessary
             if self.fascist_policies == 3:
-                await self.bot.main_channel.send('**Warning: %ss will win if %s is elected %s.' % \
+                await self.bot.main_channel.send('**Warning: %ss will win if %s is elected %s.**' % \
                                                  (self.ROLE_NAMES[FASCIST], self.ROLE_NAMES[HITLER],
                                                   'deputy coach' if self.amc_mode else 'chancellor'))
             elif self.fascist_policies == 5:

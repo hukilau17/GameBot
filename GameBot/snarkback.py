@@ -274,7 +274,7 @@ class Snarkback(Game):
 
 
     async def timer(self, msg, delay, after):
-        message = (await self.bot.main_channel.send('%s: **%d** seconds' % (msg, delay)))
+        message = (await self.bot.main_channel.send('%s: less than **%d** seconds' % (msg, delay)))
         loop = asyncio.get_running_loop()
         self.starting_time = loop.time()
         remaining = self.delay_time = delay
