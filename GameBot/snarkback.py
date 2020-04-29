@@ -88,7 +88,7 @@ class Snarkback(Game):
             self.running = False
             return
         # Set up the list of questions
-        if (self.last_reset is None) or (not self.questions):
+        if (self.last_reset is None) or (len(self.questions) < 2*len(self.players) + 1):
             self.last_reset = datetime.datetime.now()
             self.questions = self.QUESTIONS[:]
         else:
