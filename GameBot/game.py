@@ -174,9 +174,19 @@ class Game(object):
     async def starting_timer(self):
         # Start a very long timer to cancel the game after a certain amount (20 minutes) of delay between creation and start time
         await asyncio.sleep(STARTING_DELAY)
-        if not self.running:
+        if self.owner and not self.running:
             self.owner = None
             await self.bot.main_channel.send('*The current game of %s has timed out without starting. It has now been canceled.*' % self.name)
+
+
+    def cancel_starting_timer(self):
+        # Cancel the starting timer
+        if self.running:
+            # Stop the timer
+            if self.starting_timer_task:
+                if not self.starting_timer_task.done():
+                    self.starting_timer_task.cancel()
+                self.starting_timer_task = None
         
         
                     
@@ -189,6 +199,7 @@ class Game(object):
                     self.owner = None
                     # Make a public announcement
                     await self.bot.main_channel.send('%s has canceled the currently active game of %s.' % (message.author.mention, self.name))
+                    self.cancel_starting_timer()
 
 
     async def gb_join(self, message):
@@ -259,11 +270,7 @@ class Game(object):
             self.running = True
             await self.start(message)
             if self.running:
-                # Stop the timer
-                if self.starting_timer_task:
-                    if not self.starting_timer_task.done():
-                        self.starting_timer_task.cancel()
-                    self.starting_timer_task = None
+                self.cancel_starting_timer()
         
 
     async def gb_ping(self, message):
