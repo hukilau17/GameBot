@@ -160,6 +160,8 @@ class SecretHitler(Game):
                 info += '**Current %s**: %s\n' % ('head coach' if self.amc_mode else 'presidential candidate', self.president.user.mention)
             if self.chancellor:
                 info += '**Current %s**: %s\n' % ('deputy coach' if self.amc_mode else 'chancellor candidate', self.chancellor.user.mention)
+            info += '*Election tracker: %d out of 3*\n' % self.election_tracker
+            info += '*Number of policies currently in deck: %d*\n' % len(self.policy_deck)
             await message.channel.send(info)
             await self.sh_poke(message)
 
@@ -430,6 +432,9 @@ class SecretHitler(Game):
             # Veto as president
             self.waiting_for_veto = False
             await self.bot.main_channel.send('**%s agrees to the veto.**' % self.president.user.mention)
+            for p in (self.president, self.chancellor):
+                self.unmute(p)
+            await self.shuffle_policies()
             # Advance the team
             await self.advance_team()
 

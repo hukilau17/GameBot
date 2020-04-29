@@ -5,6 +5,7 @@ import discord
 import recordclass
 import random
 import os
+import datetime
 import asyncio
 import urllib.request
 
@@ -32,6 +33,8 @@ VOTING_TIMER = 20 # The timer for voting
 FINAL_VOTING_TIMER = 40 # The timer for voting in round three
 WARNING_TIME = 10 # The time at which a warning message is DMed to everyone we're waiting on
 
+RESET_DELAY = datetime.timedelta(days=1) # After 24 hours, reset all the questions
+
 
 
 
@@ -58,6 +61,7 @@ class Snarkback(Game):
         self.timer_task     = None  # The current timer task, if any
         self.delay_time     = None  # The current delay set on the timer
         self.starting_time  = None  # The time when the timer started, if any
+        self.last_reset     = None  # The last time the questions were reset
 
 
     async def setup(self):
@@ -84,7 +88,15 @@ class Snarkback(Game):
             self.running = False
             return
         # Set up the list of questions
-        self.questions = self.QUESTIONS[:]
+        if not self.questions:
+            self.last_reset = datetime.datetime.now()
+            self.questions = self.QUESTIONS[:]
+        else:
+            # This should cut down on the not-uncommon birthday paradox situation of having
+            # the same prompt come up in two consecutive games.
+            now = datetime.datetime.now()
+            if now - self.last_reset > RESET_DELAY:
+                self.questions = self.QUESTIONS[:]
         # No upper limit on the number of players :P
         # Make a public announcement
         await self.bot.main_channel.send('The game has now been started!')
@@ -292,6 +304,8 @@ class Snarkback(Game):
             # Time is up, use the after() coroutine to move things along
             await message.delete()
             self.starting_time = self.delay_time = None
+            for p in self.waiting():
+                await p.user.send('Time is up!')
             if after:
                 await after()
             return
