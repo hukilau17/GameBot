@@ -61,7 +61,6 @@ class Snarkback(Game):
         self.timer_task     = None  # The current timer task, if any
         self.delay_time     = None  # The current delay set on the timer
         self.starting_time  = None  # The time when the timer started, if any
-        self.last_reset     = None  # The last time the questions were reset
 
 
     async def setup(self):
@@ -74,6 +73,7 @@ class Snarkback(Game):
             self.QUESTIONS = data.strip().splitlines()
             if self.owner:
                 await self.bot.main_channel.send('*Snarkback prompts have been loaded!*')
+            self.last_reset = None
         except:
             await self.bot.main_channel.send('*Error loading Snarkback prompts!!*')
 
@@ -88,7 +88,7 @@ class Snarkback(Game):
             self.running = False
             return
         # Set up the list of questions
-        if not self.questions:
+        if (self.last_reset is None) or (not self.questions):
             self.last_reset = datetime.datetime.now()
             self.questions = self.QUESTIONS[:]
         else:
@@ -96,6 +96,7 @@ class Snarkback(Game):
             # the same prompt come up in two consecutive games.
             now = datetime.datetime.now()
             if now - self.last_reset > RESET_DELAY:
+                self.last_reset = now
                 self.questions = self.QUESTIONS[:]
         # No upper limit on the number of players :P
         # Make a public announcement
