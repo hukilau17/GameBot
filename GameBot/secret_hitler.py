@@ -541,11 +541,10 @@ class SecretHitler(Game):
             self.waiting_for_special = False
             self.players.remove(player)
             self.dead_players.append(player)
-            if player not in self.bot.muted:
-                self.bot.muted.append(player)
+            self.mute(player)
             # Make a public announcement
             await self.bot.main_channel.send('**%s:** %s has chosen to %s %s.' % \
-                                             (self.POWER_NAMES[INVESTIGATE_LOYALTY], self.president.user.mention,
+                                             (self.POWER_NAMES[EXECUTION], self.president.user.mention,
                                               'disqualify' if self.amc_mode else 'execute',
                                               player.user.mention))
             # Check if they've killed Hitler
@@ -744,8 +743,7 @@ Please cast your votes **privately** by DMing either "sh ja" or "sh nein" to %s.
                                              self.bot.user.mention))
             self.waiting_for_president = True
             for p in (self.president, self.chancellor):
-                if p not in self.bot.muted:
-                    self.bot.muted.append(p) # Don't let them talk while they are deciding
+                self.mute(p) # Don't let them talk while they are deciding
 
 
 
@@ -763,8 +761,7 @@ Please cast your votes **privately** by DMing either "sh ja" or "sh nein" to %s.
                                                                   'problem' if self.amc_mode else 'policy',
                                                                   'solved' if self.amc_mode else 'enacted'))
         for p in (self.president, self.chancellor):
-            if p in self.bot.muted:
-                self.bot.muted.remove(p) # Let the president and chancellor talk again
+            self.unmute(p) # Let the president and chancellor talk again
         await self.check_for_winner()
         await self.shuffle_policies()
         if self.running and (policy == FASCIST):
@@ -825,12 +822,10 @@ may move to veto an agenda proposed by the %s by typing "sh veto".' % \
         self.owner = None
         self.running = False
         info = '**Game role reveals:**\n'
-        for p in self.players:
+        for p in self.players + self.dead_players:
             info += '%s: %s\n' % (p.user.mention, self.ROLE_NAMES[p.role])
         await self.bot.main_channel.send(info)
         # Unmute everyone
-        for p in self.players + self.dead_players:
-            if p in self.bot.muted:
-                self.bot.muted.remove(p)
+        self.unmute_all()
             
 

@@ -57,6 +57,7 @@ class Game(object):
         help_strings.sort()
         self.help = '**%s bot commands:**\n%s' % (self.name, '\n'.join(help_strings))
         self.starting_timer_task = None
+        self.muted = []
 
 
 
@@ -200,6 +201,7 @@ class Game(object):
                     # Make a public announcement
                     await self.bot.main_channel.send('%s has canceled the currently active game of %s.' % (message.author.mention, self.name))
                     self.cancel_starting_timer()
+                    self.unmute_all()
 
 
     async def gb_join(self, message):
@@ -327,6 +329,24 @@ class Game(object):
         else:
             heff = discord.utils.get(self.bot.get_all_members(), id=int(os.getenv('GAMEBOT_HEFF_ID')))
         await heff.send('shup heff')
+
+
+    # Muting
+
+    def mute(self, player):
+        if player not in self.muted:
+            self.bot.muted.append(player)
+            self.muted.append(player)
+
+    def unmute(self, player):
+        if player in self.muted:
+            self.bot.muted.remove(player)
+            self.muted.remove(player)
+
+    def unmute_all(self):
+        for player in self.muted:
+            self.bot.muted.remove(player)
+        self.muted = []
 
 
 
