@@ -92,7 +92,7 @@ class Deck(object):
             self.shuffle()
         questions = []
         while len(questions) < n:
-            question = questions.pop()
+            question = self.questions.pop()
             if question in self.used_questions:
                 continue
             questions.append(question)
@@ -328,11 +328,13 @@ class Snarkback(Game):
         if n > 10:
             await message.channel.send('Ratio is too large')
             return
-        if (await self.check_not_running(message)):
-            self.deck.custom_ratio = n
-            if self.deck.loaded:
-                self.deck.shuffle()
-            await self.bot.main_channel.send('*The custom question ratio has been set to %d to 1*' % n)
+        if self.running:
+            await message.channel.send('Cannot change ratio in the middle of a game')
+            return
+        self.deck.custom_ratio = n
+        if self.deck.loaded:
+            self.deck.shuffle()
+        await self.bot.main_channel.send('*The custom question ratio has been set to %d to 1*' % n)
         
 
 
