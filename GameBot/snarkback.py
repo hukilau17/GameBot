@@ -33,11 +33,94 @@ VOTING_TIMER = 20 # The timer for voting
 FINAL_VOTING_TIMER = 40 # The timer for voting in round three
 WARNING_TIME = 10 # The time at which a warning message is DMed to everyone we're waiting on
 
-RESET_DELAY = datetime.timedelta(days=1) # After 24 hours, reset all the questions
+RESET_DELAY = datetime.timedelta(hours=6) # After six hours of inactivity, reset all the questions
 
 
 
 
+
+
+
+##### Deck helper class #####
+
+
+class Deck(object):
+
+    def __init__(self):
+        self.questions = []
+        self.normal_questions = []
+        self.custom_questions = []
+        self.used_questions = []
+        self.loaded = False
+        self.length = 0
+        self.custom_ratio = 1
+
+
+    def load(self):
+        # Load all the questions from the file
+        url = os.getenv('GAMEBOT_SB_QUESTIONS')
+        with urllib.request.urlopen(url) as o:
+            data = o.read()
+        if isinstance(data, bytes):
+            data = data.decode()
+        questions = data.strip().splitlines()
+        separator = questions.index('')
+        self.questions = []
+        self.normal_questions = questions[:separator]
+        self.custom_questions = questions[separator+1:]
+        self.used_questions = []
+        self.loaded = True
+        self.length = 0
+
+
+    def shuffle(self):
+        # Shuffle all the questions back into the pool, duplicating custom questions
+        # the appropriate number of times
+        self.questions = self.normal_questions + self.custom_questions * self.custom_ratio
+        if self.custom_ratio:
+            self.length = len(self.normal_questions) + len(self.custom_questions)
+        else:
+            self.length = len(self.normal_questions)
+        self.used_questions = []
+        random.shuffle(self.questions)
+
+
+    def draw(self, n):
+        # Draw and return `n` questions from the pool, and mark them used so they
+        # will not appear again until the deck is reshuffled
+        if self.length < n:
+            self.shuffle()
+        questions = []
+        while len(questions) < n:
+            question = questions.pop()
+            if question in self.used_questions:
+                continue
+            questions.append(question)
+            self.used_questions.append(question)
+            self.length -= 1
+        return questions
+            
+            
+        
+
+    
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+##### Main class #####
 
 
 
@@ -46,6 +129,11 @@ class Snarkback(Game):
     name = 'Snarkback'
     prefix = 'sb'
 
+    def __init__(self, bot):
+        Game.__init__(self, bot)
+        self.deck = Deck()
+        self.last_start = None
+
     def create_player(self, user):
         return Player(user, 0, 0, [], [], [], 0)
 
@@ -53,7 +141,6 @@ class Snarkback(Game):
         self.round          = 0     # The current number of the round we are on
         self.prompts        = []    # The list of prompts being used in this round
         self.snarks         = []    # The list of players' replies to prompts. Each reply is of the form [prompt, (reply, player), (reply, player), ...]
-        self.questions      = []    # The database of questions.
         self.audience_votes = []    # List of votes received from the audience. Each is the index of a snark.
         self.current_snark  = None  # The snark currently being voted on
         self.voting         = False # True if the voting for this prompt is currently open.
@@ -65,15 +152,9 @@ class Snarkback(Game):
 
     async def setup(self):
         try:
-            url = os.getenv('GAMEBOT_SB_QUESTIONS')
-            with urllib.request.urlopen(url) as o:
-                data = o.read()
-            if isinstance(data, bytes):
-                data = data.decode()
-            self.QUESTIONS = data.strip().splitlines()
+            self.deck.load()
             if self.owner:
                 await self.bot.main_channel.send('*Snarkback prompts have been loaded!*')
-            self.last_reset = None
         except:
             await self.bot.main_channel.send('*Error loading Snarkback prompts!!*')
 
@@ -83,21 +164,15 @@ class Snarkback(Game):
             await message.channel.send('Cannot start: the game should have at least 3 players')
             self.running = False
             return
-        if not hasattr(self, 'QUESTIONS'):
+        if not self.deck.loaded:
             await message.channel.send('Cannot start: the questions have not been loaded yet. Please wait a moment.')
             self.running = False
             return
         # Set up the list of questions
-        if (self.last_reset is None) or (len(self.questions) < 2*len(self.players) + 1):
-            self.last_reset = datetime.datetime.now()
-            self.questions = self.QUESTIONS[:]
-        else:
-            # This should cut down on the not-uncommon birthday paradox situation of having
-            # the same prompt come up in two consecutive games.
-            now = datetime.datetime.now()
-            if now - self.last_reset > RESET_DELAY:
-                self.last_reset = now
-                self.questions = self.QUESTIONS[:]
+        now = datetime.datetime.now()
+        if (self.last_start is None) or (now - self.last_start > RESET_DELAY):
+            self.deck.shuffle()
+        self.last_start = now
         # No upper limit on the number of players :P
         # Make a public announcement
         await self.bot.main_channel.send('The game has now been started!')
@@ -227,6 +302,37 @@ class Snarkback(Game):
                     await message.channel.send('Time is up!')
                 else:
                     await message.channel.send('**%d** seconds remaining!' % diff)
+
+
+
+
+    async def sb_ratio(self, message):
+        '''Set or query the custom question ratio'''
+        spl = message.content.split()
+        if len(spl) == 2:
+            await message.channel.send('*The custom question ratio is %d to 1*' % self.deck.custom_ratio)
+            return
+        if len(spl) != 3:
+            n = None
+        else:
+            try:
+                n = int(spl[2])
+            except ValueError:
+                n = None
+        if n is None:
+            await message.channel.send('Syntax: sb ratio [number]')
+            return
+        if n < 0:
+            await message.channel.send('Cannot set negative ratio')
+            return
+        if n > 10:
+            await message.channel.send('Ratio is too large')
+            return
+        if (await self.check_not_running(message)):
+            self.deck.custom_ratio = n
+            if self.deck.loaded:
+                self.deck.shuffle()
+            await self.bot.main_channel.send('*The custom question ratio has been set to %d to 1*' % n)
         
 
 
@@ -243,7 +349,7 @@ class Snarkback(Game):
         self.current_snark = None
         if self.round < 3:
             # Randomly pick one question for each player
-            self.prompts = random.sample(self.questions, len(self.players))
+            self.prompts = self.deck.draw(len(self.players))
             # Randomly assign each player two questions, so that each question is assigned
             # to exactly two players.
             # We do this by constructing a cycle. (Yay for graph theory!)
@@ -265,12 +371,9 @@ class Snarkback(Game):
             self.players[0].prompts.append(current_prompt) # The first player only got one prompt at the beginning
         else:
             # Randomly pick a single question for everyone
-            self.prompts = random.sample(self.questions, 1)
+            self.prompts = self.deck.draw(1)
             for player in self.players:
                 player.prompts = self.prompts[:]
-        # Remove the prompts that were selected to avoid duplication in a later round
-        for prompt in self.prompts:
-            self.questions.remove(prompt)
         # Prompt all the players
         await self.bot.main_channel.send('**Round %d has begun!** All players, please check your DMs and reply to the prompts using "sb snark [reply]"' % self.round)
         if self.round == 3:
