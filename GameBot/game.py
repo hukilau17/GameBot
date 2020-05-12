@@ -162,11 +162,12 @@ class Game(object):
         await self.bot.main_channel.send('%s has just created an game of %s. To join, simply type "%s join".' % (message.author.mention, self.name, self.prefix))
         # Ping the #off-topic channel too if it's not too soon to do that
         now = datetime.datetime.utcnow()
-        if (self.bot.last_ping is None) or (now - self.bot.last_ping >= PING_DELAY):
-            if message.guild:
-                role = discord.utils.get(message.guild.roles, id=int(os.getenv('GAMEBOT_ROLE_ID')))
-                self.bot.last_ping = now
-                await self.bot.ping_channel.send('%s: a game of %s has been created in %s!' % (role.mention, self.name, self.bot.main_channel.mention))
+        if self.bot.ping_channel:
+            if (self.bot.last_ping is None) or (now - self.bot.last_ping >= PING_DELAY):
+                if message.guild:
+                    role = discord.utils.get(message.guild.roles, id=int(os.getenv('GAMEBOT_ROLE_ID')))
+                    self.bot.last_ping = now
+                    await self.bot.ping_channel.send('%s: a game of %s has been created in %s!' % (role.mention, self.name, self.bot.main_channel.mention))
         # Start the timer
         self.starting_timer_task = asyncio.create_task(self.starting_timer())
 
@@ -335,13 +336,13 @@ class Game(object):
 
     def mute(self, player):
         if player not in self.muted:
-            self.bot.muted.append(player)
             self.muted.append(player)
+            self.bot.muted.append(player)
 
     def unmute(self, player):
         if player in self.muted:
-            self.bot.muted.remove(player)
             self.muted.remove(player)
+            self.bot.muted.remove(player)
 
     def unmute_all(self):
         for player in self.muted:

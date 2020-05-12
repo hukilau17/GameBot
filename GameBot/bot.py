@@ -30,14 +30,16 @@ class GameBot(discord.Client):
         if self.main_channel is None:
             self.main_channel = discord.utils.get(self.get_all_channels(), id=int(os.getenv('GAMEBOT_DEFAULT_CHANNEL')))
         if self.ping_channel is None:
-            self.ping_channel = discord.utils.get(self.get_all_channels(), id=int(os.getenv('GAMEBOT_PING_CHANNEL')))
+            ping_channel = os.getenv('GAMEBOT_PING_CHANNEL')
+            if ping_channel:
+                self.ping_channel = discord.utils.get(self.get_all_channels(), id=int(ping_channel))
         
 
     async def on_ready(self):
         self.init_channels()
         if (not self.connected) or any([game.running for game in self.games]):
             await self.main_channel.send('%s is now online' % self.user.mention)
-            if not self.connected:
+            if not self.connected and self.ping_channel:
                 if self.last_ping is None:
                     # Find the last ping if any
                     now = datetime.datetime.utcnow()
@@ -56,6 +58,8 @@ class GameBot(discord.Client):
         if message.author == self.user:
             return
         self.init_channels()
+        if message.author not in self.main_channel.guild.members:
+            await message.channel.send('%s is not currently active on this server.' % self.user.mention)
         # Figure out which game, if any, the message is referring to
         content = message.content.lower()
         for game in self.games:

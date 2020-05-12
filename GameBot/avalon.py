@@ -4,11 +4,7 @@
 import discord
 import recordclass
 import enum
-import datetime
-import re
-import pickle
 import random
-import itertools
 import asyncio
 
 from .game import Game
@@ -92,9 +88,6 @@ FEATURE_NAMES = {
     }
 
 
-MENTION_RE = re.compile(r'<@!?(\d+)>')
-STATS_RE = re.compile(r'^<@!?(\d+)>: ([\w /]+)$', re.M)
-
 
 
 Player = recordclass.recordclass('Player', 'user role side vote outcome')
@@ -128,8 +121,6 @@ QUEST_LISTS = {
 
 
 VOTE_DELAY = 15 # Number of seconds before voting messages are deleted
-SPOTIFY_SAMPLE = 500 # Sample size in spotify shuffling
-SPOTIFY_DEPTH = 100 # Maximum search depth in spotify shuffling
 
 
 
@@ -143,18 +134,8 @@ class Avalon(Game):
     prefix = 'av'
 
 
-    def __init__(self, bot):
-        Game.__init__(self, bot)
-        self.fetching_stats = False # True if the bot is busy fetching stats
-        self.spotify_mode = False # True if spotify mode is on
-
-
     def create_player(self, user):
         return Player(user, (), None, None, None)
-
-
-    async def setup(self):
-        await self.fetch_stats()
 
 
     async def create(self, message):
@@ -213,19 +194,16 @@ class Avalon(Game):
 
     async def av_enable(self, message):
         '''Enable a feature of the game'''
-        # av enable: Enables a feature
         await self.enable(message, True)
 
     async def av_disable(self, message):
         '''Disable a feature of the game'''
-        # av disable: Enables a feature
         await self.enable(message, False)
 
 
 
     async def av_info(self, message):
         '''Print out the current game info'''
-        # av info: Prints out game info
         if (await self.check_game(message)):
             info = '**Current players:**\n%s\n' % ', '.join([player.user.name for player in self.players])
             info += 'Game owner: %s\n' % self.owner.user.mention
@@ -251,7 +229,6 @@ class Avalon(Game):
 
     async def av_poke(self, message):
         '''Pokes people who need to make a decision'''
-        # av poke: pings people who the game is currently waiting for to make a decision
         if (await self.check_running(message)):
             if self.waiting_for_votes:
                 await self.bot.main_channel.send('*Currently waiting for the following players to cast their votes: %s*' % \
@@ -275,7 +252,6 @@ class Avalon(Game):
 
     async def av_merge(self, message):
         '''Merge two special roles'''
-        # av merge: merge two or more roles
         roles = message.content.split()[2:]
         if len(roles) < 2:
             # Print usage
@@ -328,7 +304,6 @@ class Avalon(Game):
 
     async def av_unmerge(self, message):
         '''Unmerge all previously merged special roles'''
-        # av unmerge: unmerge all roles
         if (await self.check_not_running(message)) and (await self.check_owner(message)):
             self.merged = []
             await self.bot.main_channel.send('All roles have been unmerged for this game.')
@@ -396,7 +371,6 @@ class Avalon(Game):
 
     async def av_pick(self, message):
         '''Pick someone as a member of your team (note there is no way to "un-pick" them later!)'''
-        # av pick: Pick people to join your team
         if not message.mentions:
             # Print usage
             await message.channel.send('Syntax: av pick [mention teammates]')
@@ -405,12 +379,10 @@ class Avalon(Game):
 
     async def av_pickme(self, message):
         '''Shortcut to pick yourself for your own team'''
-        # av pickme: Pick yourself to join your team
         await self.pick(message, message.author)
 
     async def av_pickrandom(self, message):
         '''Pick a random person to join your team'''
-        # av pickrandom: Pick a random person to join your team
         if (await self.check_running(message)):
             await self.pick(message, random.choice([p for p in self.players if p not in self.team]).user)
 
@@ -460,12 +432,10 @@ class Avalon(Game):
 
     async def av_approve(self, message):
         '''Vote yes to a proposed team'''
-        # av approve: Signal that you approve of the proposed team.
         await self.vote(message, APPROVE)
 
     async def av_reject(self, message):
         '''Vote no to a proposed team'''
-        # av reject: Signal that you disapprove of the proposed team.
         await self.vote(message, REJECT)
 
 
@@ -521,19 +491,16 @@ class Avalon(Game):
 
     async def av_success(self, message):
         '''Signal that a quest should succeed'''
-        # av success: Signal that a quest should succeed.
         await self.outcome(message, SUCCESS)
 
     async def av_fail(self, message):
         '''Cause a quest to fail'''
-        # av fail: Signal that a quest should fail.
         await self.outcome(message, FAIL)
 
 
 
     async def av_lady(self, message):
         '''Investigate the alignment of another player using Lady of the Lake'''
-        # av lady: Pick someone to investigate.
         if len(message.mentions) != 1:
             # Print usage
             await message.channel.send('Syntax: av lady [mention target]')
@@ -571,7 +538,6 @@ class Avalon(Game):
 
     async def av_assassinate(self, message):
         '''Try to kill Merlin (if you are the Assassin and it is the end of the game)'''
-        # av assassinate: Pick someone to assassinate.
         if len(message.mentions) != 1:
             # Print usage
             await message.channel.send('Syntax: av assassinate [mention victim]')
@@ -604,7 +570,6 @@ class Avalon(Game):
 
     async def av_roles(self, message):
         '''Print out info about the gameplay roles'''
-        # av roles: DMs character info
         await message.author.send('''**Avalon character roles:**
 
 Merlin - a Servant of Arthur who knows all the Minions of Mordred
@@ -621,272 +586,7 @@ Lady of the Lake - a card used to learn the alignment of another player''')
 
     async def av_rules(self, message):
         '''Gives link to the game rulebook'''
-        # av rules: Posts link to game rules
         await message.channel.send('http://upload.snakesandlattes.com/rules/r/ResistanceAvalon.pdf')
-
-
-
-
-    async def fetch_stats(self):
-        self.fetching_stats = True
-        # First load the stats if they exist
-        try:
-            with open('avalon_stats', 'rb') as o:
-                stats = pickle.load(o)
-            last_update = stats[-1][-1]
-        except IOError:
-            stats = []
-            last_update = None
-        # `stats` is a list of tuples of the form (user_id, role_id, win_bool, merge_count, timestamp)
-        # in chronological order
-        # First, update the stats so they're current
-        good_won = None
-        async for msg in self.bot.main_channel.history(after=last_update, oldest_first=True, limit=None):
-            if msg.author == self.bot.user:
-                # Check for a victory announcement.
-                # Going from oldest to newest means this should be made
-                # right before role reveals
-                if 'Good wins!!' in msg.content:
-                    good_won = True
-                elif 'Evil wins!!' in msg.content:
-                    good_won = False
-                # Scan message for role reveals.
-                timestamp = msg.created_at
-                for match in STATS_RE.finditer(msg.content):
-                    user_id = int(match.group(1))
-                    role_names = match.group(2)
-                    merge_count = role_names.count('/') + 1
-                    for role_name in role_names.split('/'):
-                        try:
-                            role_id = ROLE_NAMES.index(role_name)
-                        except ValueError:
-                            break
-                        good_role = (Role(role_id) in GOOD_ROLES)
-                        win_bool = (good_won == good_role)
-                        stats.append((user_id, role_id, win_bool, merge_count, timestamp))
-        # Then save them back to the file
-        with open('avalon_stats', 'wb') as o:
-            pickle.dump(stats, o)
-        self.fetching_stats = False
-        return stats
-
-
-
-    async def av_stats(self, message):
-        '''Print out the player stats'''
-        # av stats: Print out the player stats
-        if self.fetching_stats:
-            await message.channel.send('*The bot is currently busy fetching stats.*')
-            return
-        async with message.channel.typing():
-            stats = (await self.fetch_stats())
-            # Parse the query the user has made
-            content_iter = iter(message.content.split()[2:])
-            user_id = None
-            role_id = None
-            before_ts = None
-            after_ts = None
-            for string in content_iter:
-                string = string.lower()
-                m = MENTION_RE.match(string)
-                if m:
-                    # First case: the string is a mention
-                    if user_id:
-                        await message.channel.send('Error: Duplicate user name given in stats request')
-                        return
-                    user_id = int(m.group(1))
-                    continue
-                # Role aliases
-                if string == 'perc':
-                    string = 'percival'
-                if string == 'loyal':
-                    string = 'servant'
-                if string in ROLE_COMMANDS[1:]:
-                    # Second case: the string is a role name
-                    if role_id:
-                        await message.channel.send('Error: Duplicate role name given in stats request')
-                        return
-                    role_id = int(ROLE_COMMANDS.index(string))
-                    continue
-                if string == 'before':
-                    # Third case: the string indicates that a "before" date should be parsed next
-                    if before_ts:
-                        await message.channel.send('Error: Duplicate timestamp given in stats request')
-                        return
-                    try:
-                        ts = next(content_iter)
-                    except StopIteration:
-                        await message.channel.send('Error: Truncated timestamp given in stats request')
-                        return
-                    try:
-                        before_ts = datetime.datetime.strptime(ts, '%m/%d/%Y') + datetime.timedelta(days=1)
-                    except ValueError:
-                        await message.channel.send('Error: Invalid timestamp; should be given in format mm/dd/yyyy')
-                        return
-                    continue
-                if string == 'after':
-                    # Fourth case: the string indicates that an "after" date should be parsed next
-                    if after_ts:
-                        await message.channel.send('Error: Duplicate timestamp given in stats request')
-                        return
-                    try:
-                        ts = next(content_iter)
-                    except StopIteration:
-                        await message.channel.send('Error: Truncated timestamp given in stats request')
-                        return
-                    try:
-                        after_ts = datetime.datetime.strptime(ts, '%m/%d/%Y')
-                    except ValueError:
-                        await message.channel.send('Error: Invalid timestamp; should be given in format mm/dd/yyyy')
-                        return
-                    continue
-                try:
-                    dt = datetime.datetime.strptime(string, '%b')
-                except ValueError:
-                    try:
-                        dt = datetime.datetime.strptime(string, '%B')
-                    except ValueError:
-                        dt = None
-                if dt:
-                    # Fifth case: the string indicates a month during which stats should be gathered
-                    now = datetime.datetime.utcnow()
-                    if before_ts or after_ts:
-                        await message.channel.send('Error: Duplicate timestamp given in stats request')
-                        return
-                    if dt.month > now.month:
-                        year = now.year - 1
-                    else:
-                        year = now.year
-                    after_ts = datetime.datetime(year, dt.month, 1)
-                    if dt.month == 12:
-                        before_ts = datetime.datetime(year+1, 1, 1)
-                    else:
-                        before_ts = datetime.datetime(year, dt.month+1, 1)
-                    continue
-                if string == 'help':
-                    # Sixth case: the user wants help using the stats command
-                    await message.channel.send('''Specifiers that can be given in an `av stats` invocation include:
- - The mention, username, or nickname of a Discord user
- - The name of a role (%s)
- - The word "good" or "evil"
- - The name of a month to restrict stats to
- - A string of the form "before mm/dd/yyyy" or "after mm/dd/yyyy" to restrict stats to a certain range of dates (both may be specified) 
- - The word "help" to print out this message
- ''' % ', '.join(ROLE_COMMANDS[1:]))
-                    return
-                if string == 'bad':
-                    string = 'evil' # Synonyms
-                if string in ('good', 'evil'):
-                    # Seventh case: the string is the "good" or "evil" side
-                    if role_id:
-                        await message.channel.send('Error: Duplicate role name given in stats request')
-                        return
-                    role_id = string
-                    continue
-                if string == 'heff':
-                    string = 'heff10' # Expected behavior :P
-                for member in self.bot.get_all_members():
-                    # Eighth case: the string is a username or nickname of someone on the channel (but not a mention)
-                    if (member.name.lower() == string) or (member.nick and (member.nick.lower() == string)):
-                        if user_id:
-                            await message.channel.send('Error: Duplicate user name given in stats request')
-                            return
-                        user_id = member.id
-                        break
-                else:
-                    # Fail message
-                    await message.channel.send('Error: unparseable token "%s" given in stats request' % string)
-                    return
-            # Put together the statistical data to be printed
-            if user_id:
-                stats = [i for i in stats if i[0] == user_id]
-            if role_id == 'good':
-                stats = [i for i in stats if Role(i[1]) in GOOD_ROLES]
-            elif role_id == 'evil':
-                stats = [i for i in stats if Role(i[1]) in EVIL_ROLES]
-            elif role_id:
-                stats = [i for i in stats if i[1] == role_id]
-            if before_ts:
-                stats = [i for i in stats if i[4] < before_ts]
-            if after_ts:
-                stats = [i for i in stats if i[4] >= after_ts]
-            if not stats:
-                await message.channel.send('No statistical data exists matching this query.')
-                return
-            # Create the rows of data
-            rows = []
-            if user_id:
-                # If a specific user is given, print out their role info
-                counter = {}
-                total = [0, 0]
-                for user, role, win_bool, merge_count, timestamp in stats:
-                    data = counter.setdefault(role, [0, 0])
-                    if win_bool:
-                        data[0] += 1
-                        total[0] += 1.0 / merge_count
-                    else:
-                        data[1] += 1
-                        total[1] += 1.0 / merge_count
-                header_row = ('Role', 'Wins', 'Losses', 'Total', 'Win Ratio')
-                rows = [(ROLE_NAMES[key], str(w), str(l), str(w+l), '%.4g%%' % (100*w/(w+l))) for key, (w, l) in counter.items()]
-                total_row = ('Total', str(int(total[0])), str(int(total[1])), str(int(total[0]+total[1])), '%.4g%%' % (100*total[0]/(total[0]+total[1])))
-                rows.sort(key = lambda x: float(x[-1][:-1]), reverse=True)
-                rows.insert(0, header_row)
-                if len(rows) > 2:
-                    rows.append(total_row)
-            else:
-                # Print out info sorted by users then
-                counter = {}
-                for user, role, win_bool, merge_count, timestamp in stats:
-                    data = counter.setdefault(user, [0, 0])
-                    if win_bool:
-                        data[0] += (1 if isinstance(role_id, int) else 1.0 / merge_count)
-                    else:
-                        data[1] += (1 if isinstance(role_id, int) else 1.0 / merge_count)
-                header_row = ('Player', 'Wins', 'Losses', 'Total', 'Win Ratio')
-                rows = [(discord.utils.get(self.bot.get_all_members(), id=key).name, str(int(w)), str(int(l)), str(int(w+l)), '%.4g%%' % (100*w/(w+l))) for key, (w, l) in counter.items()]
-                rows.sort(key = lambda x: float(x[-1][:-1]), reverse=True)
-                rows.insert(0, header_row)
-            # Create the aligned table message
-            lengths = [max([len(row[i]) for row in rows]) for i in range(5)]
-            divider = '+%s+\n' % '+'.join(['-'*l for l in lengths])
-            rows = ['|%s|\n' % '|'.join([entry.rjust(l) for entry, l in zip(row, lengths)]) for row in rows]
-            table = divider + divider.join(rows) + divider
-            # Generate the descriptive message at the top
-            description = 'Avalon player stats'
-            if user_id:
-                description += ' for %s' % discord.utils.get(self.bot.get_all_members(), id=user_id).mention
-            if role_id == 'good':
-                description += ' for Good'
-            elif role_id == 'evil':
-                description += ' for Evil'
-            elif role_id:
-                description += ' for %s' % ROLE_NAMES[role_id]
-            if before_ts:
-                before_ts -= datetime.timedelta(days=1)
-            if before_ts and after_ts:
-                description += ' between %s and %s' % (after_ts.strftime('%x'), before_ts.strftime('%x'))
-            elif before_ts:
-                description += ' before %s' % before_ts.strftime('%x')
-            elif after_ts:
-                description += ' after %s' % after_ts.strftime('%x')
-            # Print out the whole table
-            await message.channel.send('**%s:**\n```\n%s```' % (description, table))
-                
-
-
-
-
-    async def av_spotify(self, message):
-        # av spotify: Turn on the secret true randomness feature
-        await message.channel.send('Spotify mode on')
-        self.spotify_mode = True
-
-    async def av_unspotify(self, message):
-        # av unspotify: Turn off the secret true randomness feature
-        # and use normal, boring randomness instead.
-        await message.channel.send('Spotify mode off')
-        self.spotify_mode = False
 
 
 
@@ -982,10 +682,7 @@ Lady of the Lake - a card used to learn the alignment of another player''')
                     self.features[feature] = False
         # Randomly assign them to players
         roles = [(role, True) for role in good] + [(role, False) for role in evil]
-        if self.spotify_mode:
-            roles = (await self.spotify_shuffle(roles))
-        else:
-            random.shuffle(roles)
+        random.shuffle(roles)
         for player, (role, side) in zip(self.players, roles):
             player.role = (role if isinstance(role, tuple) else (role,))
             player.side = side
@@ -1133,39 +830,5 @@ Please cast your votes **privately** by DMing either "av approve" or "av reject"
         await self.bot.main_channel.send(info)
 
 
-
-
-    async def spotify_shuffle(self, roles):
-        # Implements TRUE randomness
-        roles = [i if isinstance(i, tuple) else (i,) for i in roles]
-        sample = list(itertools.permutations(roles))
-        if len(sample) > SPOTIFY_SAMPLE:
-            sample = random.sample(sample, SPOTIFY_SAMPLE)
-        stats = (await self.fetch_stats())
-        ids = [p.user.id for p in self.players]
-        count = 0
-        for user_id, role_id, win_bool, merge_count, timestamp in stats[::-1]:
-            count += 1
-            role = Role(role_id)
-            if user_id in ids:
-                index = ids.index(user_id)
-                newsample = []
-                # When building the new, reduced, sample of permutations to choose
-                # from, make sure that the player indicated by user_id did not have
-                # the same role in this recent game as they do now
-                for perm in sample:
-                    if role not in perm[index]:
-                        newsample.append(perm)
-                if not newsample:
-                    # Have to finish now
-                    return list(random.choice(sample))
-                # Otherwise loop back again
-                sample = newsample
-                if count == SPOTIFY_DEPTH:
-                    return list(random.choice(sample))
-        # If we make it all the way to the end, just do a random permutation from
-        # the remaining choices
-        return list(random.choice(sample))
-        
         
  
