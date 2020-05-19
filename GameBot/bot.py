@@ -62,7 +62,7 @@ class GameBot(discord.Client):
             if message.author not in self.main_channel.guild.members:
                 await message.channel.send('%s is not currently active on this server.' % self.user.mention)
         elif message.channel.guild != self.main_channel.guild:
-            await message.channel.send('%s is not currently active on this server.' % self.user.mention)
+            pass #await message.channel.send('%s is not currently active on this server.' % self.user.mention)
         # Figure out which game, if any, the message is referring to
         content = message.content.lower()
         for game in self.games:
