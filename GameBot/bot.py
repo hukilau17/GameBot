@@ -61,15 +61,18 @@ class GameBot(discord.Client):
         if message.channel.type == discord.ChannelType.private:
             if message.author not in self.main_channel.guild.members:
                 await message.channel.send('%s is not currently active on this server.' % self.user.mention)
-        elif message.channel.guild != self.main_channel.guild:
-            pass #await message.channel.send('%s is not currently active on this server.' % self.user.mention)
+                return
+        allowed = (message.guild == self.main_channel.guild)
         # Figure out which game, if any, the message is referring to
         content = message.content.lower()
         for game in self.games:
             if content.startswith(game.prefix + ' '):
                 command = content.split(None, 2)[1]
                 if command in game.cmd_lookup:
-                    await game.cmd_lookup[command](message)
+                    if allowed:
+                        await game.cmd_lookup[command](message)
+                    else:
+                        await message.channel.send('%s is not currently active on this server.' % self.user.mention)
                     break
         # If we're muted, delete this message
         if message.channel == self.main_channel:
