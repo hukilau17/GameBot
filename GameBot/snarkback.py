@@ -456,7 +456,8 @@ class Snarkback(Game):
                 await message.channel.send('Syntax: sb snark [your zinger goes here].')
                 return
             if len(snark) > MAX_SNARK_SIZE:
-                await message.channel.send('Your reply is too long, it should be at most %d characters. Please try again.' % MAX_SNARK_SIZE)
+                await message.channel.send('Your reply is too long (%d characters), it should be at most %d characters. Please try again.' % \
+                                           (len(snark), MAX_SNARK_SIZE))
                 return
             await message.channel.send('Thank you for your reply!')
             snark = snark.upper()
