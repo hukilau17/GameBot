@@ -61,8 +61,10 @@ class GameBot(discord.Client):
         if message.channel.type == discord.ChannelType.private:
             if message.author not in self.main_channel.guild.members:
                 await message.channel.send('%s is not currently active on this server.' % self.user.mention)
-                #return
-        allowed = (message.guild == self.main_channel.guild)
+                return
+            allowed = True
+        else:
+            allowed = (message.guild == self.main_channel.guild)
         # Figure out which game, if any, the message is referring to
         content = message.content.lower()
         for game in self.games:
