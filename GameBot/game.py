@@ -153,6 +153,14 @@ class Game(object):
                 return
             if self.owner:
                 await self.bot.main_channel.send('%s has canceled the currently active game of %s.' % (message.author.mention, self.name))
+        # Make sure we're allowed to DM this user -- thanks to cwu
+        # for breaking this :|
+        try:
+            await message.author.send('You have created a game of %s.' % self.name)
+        except discord.Forbidden:
+            await message.channel.send('You cannot create a game since the bot is unable to direct message you.')
+            return
+        # Create the game
         self.owner = self.create_player(message.author)
         self.running = False
         self.players = [self.owner] # List of Player objects in the game, in order
@@ -215,6 +223,13 @@ class Game(object):
             # Make sure we're not already part of the game
             if self.find_player(message.author):
                 await message.channel.send('You are already part of this game.')
+                return
+            # Make sure we're allowed to DM this user -- thanks to cwu
+            # for breaking this :|
+            try:
+                await message.author.send('You have joined the game of %s.' % self.name)
+            except discord.Forbidden:
+                await message.channel.send('You cannot join this game since the bot is unable to direct message you.')
                 return
             # Add the player
             self.players.append(self.create_player(message.author))
