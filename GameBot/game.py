@@ -382,7 +382,7 @@ class Game(object):
                     await message.channel.send('Error: you are not allowed to roll that many dice at once.')
                 else:
                     await message.channel.send('Your %d random %d-sided die roll%s: **%s**' % (number, sides, ('' if number == 1 else 's'),
-                                                                                               ' '.join([random.randint(1, sides) for i in range(number)])))
+                                                                                               ' '.join(map(str, [random.randint(1, sides) for i in range(number)]))))
                 return
         # If we get here, there was an error and we need to print syntax
         await message.channel.send('Syntax: %s roll [number]d[sides]\n(For example: %s roll 1d6)' % (self.prefix, self.prefix))
