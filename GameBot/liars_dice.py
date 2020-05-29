@@ -81,12 +81,12 @@ class LiarsDice(Game):
                 # Remove the player
                 self.players.remove(player)
                 # Make a public announcement
-                await self.bot.main_channel.send('%s has left the game of %s.' % (message.author.mention, self.name))
+                await self.main_channel.send('%s has left the game of %s.' % (message.author.mention, self.name))
                 if self.running:
                     if len(self.players) <= 1:
-                        await self.bot.main_channel.send('The game has been canceled because there are too few players.')
-                        self.running = False
-                        self.owner = None
+                        channel = self.main_channel
+                        self.close()
+                        await channel.send('The game has been canceled because there are too few players.')
                     elif player.user == self.current:
                         self.current = self.players[index % len(self.players)]
                         await self.ld_poke(message)
@@ -120,7 +120,7 @@ class LiarsDice(Game):
             self.n_dice_start = n_dice_start
             self.n_dice_end = n_dice_end
             self.n_sides = n_sides
-            await self.bot.main_channel.send(self.dice_settings())
+            await self.main_channel.send(self.dice_settings())
 
 
     def pass_settings(self):
@@ -162,7 +162,7 @@ class LiarsDice(Game):
             if mode == PASS_SKIP:
                 mode |= PASS_DEFAULT
             self.pass_mode = mode
-            await self.bot.main_channel.send(self.pass_settings())
+            await self.main_channel.send(self.pass_settings())
 
 
     def spot_settings(self):
@@ -211,7 +211,7 @@ class LiarsDice(Game):
             if mode != SPOT_NONE:
                 mode |= SPOT_NORMAL
             self.spot_mode = mode
-            await self.bot.main_channel.send(self.spot_settings())
+            await self.main_channel.send(self.spot_settings())
 
 
     async def ld_wild(self, message):
@@ -226,11 +226,11 @@ class LiarsDice(Game):
             if len(content) == 3:
                 if content[2] == 'on':
                     self.ones_wild = True
-                    await self.bot.main_channel.send('**Ones are wild in this game.**')
+                    await self.main_channel.send('**Ones are wild in this game.**')
                     return
                 if content[2] == 'off':
                     self.ones_wild = False
-                    await self.bot.main_channel.send('**Ones are not wild in this game.**')
+                    await self.main_channel.send('**Ones are not wild in this game.**')
                     return
             await message.channel.send('Syntax: ld wild [on or off]')
 
@@ -256,9 +256,9 @@ class LiarsDice(Game):
         '''Pokes people who need to make a decision'''
         if (await self.check_running(message)):
             if self.current:
-                await self.bot.main_channel.send('*Currently waiting for %s to make a bid.*' % self.current.user.mention)
+                await self.main_channel.send('*Currently waiting for %s to make a bid.*' % self.current.user.mention)
             else:
-                await self.bot.main_channel.send('*Not currently waiting for anyone to make a decision.*')
+                await self.main_channel.send('*Not currently waiting for anyone to make a decision.*')
 
 
     async def start(self, message):
@@ -268,7 +268,7 @@ class LiarsDice(Game):
             await message.channel.send('Cannot start the game unless there are at least two players.')
             return
         # Make a public announcement
-        await self.bot.main_channel.send('The game has now been started!')
+        await self.main_channel.send('The game has now been started!')
         # Set up the game
         random.seed() # Seed the random number generator
         random.shuffle(self.players) # Randomize the play order
@@ -296,12 +296,12 @@ class LiarsDice(Game):
         else:
             player.dice.append(1)
         if len(player.dice) == self.n_dice_end:
-            await self.bot.main_channel.send('*%s has been eliminated from the game.*' % player.user.mention)
+            await self.main_channel.send('*%s has been eliminated from the game.*' % player.user.mention)
             self.players.remove(player)
             if len(self.players) == 1:
-                await self.bot.main_channel.send('**The game is over. %s is the winner!**' % self.players[0].user.mention)
-                self.owner = False
-                self.running = False
+                channel = self.main_channel
+                self.close()
+                await channel.send('**The game is over. %s is the winner!**' % self.players[0].user.mention)
 
                 
     async def reward(self, player):
@@ -312,12 +312,12 @@ class LiarsDice(Game):
             if len(player.dice) > self.n_dice_start:
                 player.dice.pop()
         if len(player.dice) == self.n_dice_end:
-            await self.bot.main_channel.send('*%s has been eliminated from the game.*' % player.user.mention)
+            await self.main_channel.send('*%s has been eliminated from the game.*' % player.user.mention)
             self.players.remove(player)
             if len(self.players) == 1:
-                await self.bot.main_channel.send('**The game is over. %s is the winner!**' % self.players[0].user.mention)
-                self.owner = False
-                self.running = False
+                channel = self.main_channel
+                self.close()
+                await channel.send('**The game is over. %s is the winner!**' % self.players[0].user.mention)
                 
                 
 
@@ -376,7 +376,7 @@ class LiarsDice(Game):
             index = (index + 1) % len(self.players)
             self.current = self.players[index]
             # Make a public announcement
-            await self.bot.main_channel.send('%s bid **%s**.\nIt is now %s\'s turn.' % (self.last_bidder.user.mention, self.format_bid((num, value)), self.current.user.mention))
+            await self.main_channel.send('%s bid **%s**.\nIt is now %s\'s turn.' % (self.last_bidder.user.mention, self.format_bid((num, value)), self.current.user.mention))
 
 
 
@@ -425,13 +425,13 @@ class LiarsDice(Game):
             current = self.current
             self.current = None # Don't allow repeat invocations!
             if not is_pass:
-                await self.bot.main_channel.send('%s challenged %s\'s bid of %s.' % (message.author.mention, player.user.mention, self.format_bid(player.bid)))
+                await self.main_channel.send('%s challenged %s\'s bid of %s.' % (message.author.mention, player.user.mention, self.format_bid(player.bid)))
             else:
-                await self.bot.main_channel.send('%s challenged %s\'s pass.' % (message.author.mention, player.user.mention))
-            async with self.bot.main_channel.typing():
+                await self.main_channel.send('%s challenged %s\'s pass.' % (message.author.mention, player.user.mention))
+            async with self.main_channel.typing():
                 await asyncio.sleep(5) # Pause for dramatic effect
             rolls = ['%s: %s' % (p.user.mention, ' '.join(map(str, p.dice))) for p in self.players]
-            result_msg = (await self.bot.main_channel.send('Die rolls:\n%s' % '\n'.join(rolls)))
+            result_msg = (await self.main_channel.send('Die rolls:\n%s' % '\n'.join(rolls)))
             await result_msg.delete(delay=RESULT_DELAY) # Delete after a certain time
             penalty = ('loses' if self.n_dice_start > self.n_dice_end else 'gains')
             if not is_pass:
@@ -468,7 +468,7 @@ class LiarsDice(Game):
                               (player.user.mention, player.user.mention, penalty)
                         losing = player
             # Send the message and penalize the appropriate player
-            await self.bot.main_channel.send(msg)
+            await self.main_channel.send(msg)
             index = self.players.index(losing)
             await self.penalize(losing)
             if losing in self.players:
@@ -512,7 +512,7 @@ class LiarsDice(Game):
             index = (index + 1) % len(self.players)
             self.current = self.players[index]
             # Make a public announcement
-            await self.bot.main_channel.send('%s passed.\nIt is now %s\'s turn.' % (self.passed_players[-1].user.mention, self.current.user.mention))
+            await self.main_channel.send('%s passed.\nIt is now %s\'s turn.' % (self.passed_players[-1].user.mention, self.current.user.mention))
 
 
 
@@ -530,11 +530,11 @@ class LiarsDice(Game):
             # Make a public announcement
             current = self.current
             self.current = None # Don't allow repeat invocations!
-            await self.bot.main_channel.send('%s called spot on %s\'s bid of %s.' % (message.author.mention, player.user.mention, self.format_bid(player.bid)))
-            async with self.bot.main_channel.typing():
+            await self.main_channel.send('%s called spot on %s\'s bid of %s.' % (message.author.mention, player.user.mention, self.format_bid(player.bid)))
+            async with self.main_channel.typing():
                 await asyncio.sleep(5) # Pause for dramatic effect
             rolls = ['%s: %s' % (p.user.mention, ' '.join(map(str, p.dice))) for p in self.players]
-            result_msg = (await self.bot.main_channel.send('Die rolls:\n%s' % '\n'.join(rolls)))
+            result_msg = (await self.main_channel.send('Die rolls:\n%s' % '\n'.join(rolls)))
             await result_msg.delete(delay=RESULT_DELAY) # Delete after a certain time
             num, value = player.bid
             count = sum([p.dice.count(value) for p in self.players])
@@ -566,7 +566,7 @@ class LiarsDice(Game):
                                                                           'loses' if self.n_dice_start > self.n_dice_end else 'gains')
                 losing = [current]
             # Send the message and penalize/reward the appropriate player(s)
-            await self.bot.main_channel.send(msg)
+            await self.main_channel.send(msg)
             index = self.players.index(current)
             rotated_players = self.players[index:] + self.players[:index]
             for p in losing:

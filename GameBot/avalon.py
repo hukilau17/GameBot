@@ -179,7 +179,7 @@ class Avalon(Game):
             # Make sure the feature exists
             if feature == 'all':
                 # Enable/disable all
-                await self.bot.main_channel.send('all %s' % ('enabled' if enable else 'disabled'))
+                await self.main_channel.send('all %s' % ('enabled' if enable else 'disabled'))
                 for key in self.features:
                     self.features[key] = enable
                 return
@@ -188,7 +188,7 @@ class Avalon(Game):
             if feature not in self.features:
                 await message.channel.send('Unrecognized feature "%s": should be one of %s, all' % (feature, ', '.join(self.features)))
                 return
-            await self.bot.main_channel.send('%s %s' % (FEATURE_NAMES[feature], 'enabled' if enable else 'disabled'))
+            await self.main_channel.send('%s %s' % (FEATURE_NAMES[feature], 'enabled' if enable else 'disabled'))
             self.features[feature] = enable
 
 
@@ -231,21 +231,21 @@ class Avalon(Game):
         '''Pokes people who need to make a decision'''
         if (await self.check_running(message)):
             if self.waiting_for_votes:
-                await self.bot.main_channel.send('*Currently waiting for the following players to cast their votes: %s*' % \
+                await self.main_channel.send('*Currently waiting for the following players to cast their votes: %s*' % \
                                                  ', '.join([p.user.mention for p in self.players if p.vote is None]))
             elif self.waiting_for_outcomes:
-                await self.bot.main_channel.send('*Currently waiting for the following players to play their Success/Fail cards: %s*' % \
+                await self.main_channel.send('*Currently waiting for the following players to play their Success/Fail cards: %s*' % \
                                                  ', '.join([p.user.mention for p in self.team if p.outcome is None]))
             elif self.waiting_for_lady:
-                await self.bot.main_channel.send('*Currently waiting for %s to play the Lady of the Lake*' % self.lady.user.mention)
+                await self.main_channel.send('*Currently waiting for %s to play the Lady of the Lake*' % self.lady.user.mention)
             elif self.waiting_for_assassin:
-                await self.bot.main_channel.send('*Currently waiting for %s to pick someone to assassinate*' % self.assassin.user.mention)
+                await self.main_channel.send('*Currently waiting for %s to pick someone to assassinate*' % self.assassin.user.mention)
             elif self.leader and (len(self.team) < self.current_quest[0]):
                 n = self.current_quest[0] - len(self.team)
-                await self.bot.main_channel.send('*Currently waiting for %s to pick %d%s team member%s*' % \
+                await self.main_channel.send('*Currently waiting for %s to pick %d%s team member%s*' % \
                                                   (self.leader.user.mention, n, (' more' if self.team else ''), ('s' if n > 1 else '')))
             else:
-                await self.bot.main_channel.send('*Not currently waiting for anyone to make a decision.*')
+                await self.main_channel.send('*Not currently waiting for anyone to make a decision.*')
 
 
 
@@ -297,7 +297,7 @@ class Avalon(Game):
                     self.features[name] = True
                     await message.channel.send('%s enabled' % FEATURE_NAMES[name])
             # Make a public announcement
-            await self.bot.main_channel.send('Roles %s have been merged for this game.' % ', '.join([ROLE_NAMES[role.value] for role in values]))
+            await self.main_channel.send('Roles %s have been merged for this game.' % ', '.join([ROLE_NAMES[role.value] for role in values]))
 
 
 
@@ -306,7 +306,7 @@ class Avalon(Game):
         '''Unmerge all previously merged special roles'''
         if (await self.check_not_running(message)) and (await self.check_owner(message)):
             self.merged = []
-            await self.bot.main_channel.send('All roles have been unmerged for this game.')
+            await self.main_channel.send('All roles have been unmerged for this game.')
 
 
     async def start(self, message):
@@ -319,7 +319,7 @@ class Avalon(Game):
             return
         self.current_quest = next(self.quests) # This is always a 2-tuple (team members, fails required)
         # Make a public announcement
-        await self.bot.main_channel.send('The game has now been started!')
+        await self.main_channel.send('The game has now been started!')
         # Set up the game
         random.seed() # Seed the random number generator
         random.shuffle(self.players) # Randomize the play order
@@ -357,7 +357,7 @@ class Avalon(Game):
             # Add the new players then
             self.team.extend(new_players)
             # Make a public announcement:
-            await self.bot.main_channel.send('%s added new teammate%s %s.' % (self.leader.user.mention,
+            await self.main_channel.send('%s added new teammate%s %s.' % (self.leader.user.mention,
                                                                               's' if len(new_players) >= 2 else '',
                                                                               ', '.join([player.user.mention for player in new_players])))
             # Figure out if we now have the correct number
@@ -477,7 +477,7 @@ class Avalon(Game):
                 if self.running and not self.waiting_for_assassin:
                     if self.lady and (len(self.quest_results) >= 2):
                         self.waiting_for_lady = True
-                        await self.bot.main_channel.send('**Lady of the Lake:** %s, choose someone to investigate using "av lady".' % self.lady.user.mention)
+                        await self.main_channel.send('**Lady of the Lake:** %s, choose someone to investigate using "av lady".' % self.lady.user.mention)
                     else:
                         self.current_quest = next(self.quests)
                         self.has_team = False
@@ -524,7 +524,7 @@ class Avalon(Game):
                 await message.channel.send('Error: you cannot investigate someone who has already had the Lady of the Lake.')
                 return
             # Make a public announcement
-            await self.bot.main_channel.send('**Lady of the Lake:** %s has chosen to investigate %s.' % (self.lady.user.mention, player.user.mention))
+            await self.main_channel.send('**Lady of the Lake:** %s has chosen to investigate %s.' % (self.lady.user.mention, player.user.mention))
             # Send a private message
             await self.lady.user.send('Investigative result: %s is **%s**' % (player.user.name, 'Good' if player.side == GOOD else 'Evil'))
             # And update who has the Lady of the Lake
@@ -555,8 +555,8 @@ class Avalon(Game):
                 await message.channel.send('Error: %s is not part of the game.' % target.name)
                 return
             # Make a public announcement
-            await self.bot.main_channel.send('**Assassin:** %s has chosen to assassinate %s.' % (self.assassin.user.mention, player.user.mention))
-            async with self.bot.main_channel.typing():
+            await self.main_channel.send('**Assassin:** %s has chosen to assassinate %s.' % (self.assassin.user.mention, player.user.mention))
+            async with self.main_channel.typing():
                 await asyncio.sleep(5) # Pause for dramatic effect
             if Role.MERLIN in player.role:
                 await message.channel.send('**The game is over. %s correctly identified Merlin. Evil wins!!**' % self.assassin.user.mention)
@@ -629,7 +629,7 @@ Lady of the Lake - a card used to learn the alignment of another player''')
                 special_evil.append(Role.MORGANA)
         elif self.features['morgana']:
             # Warn that these are being ignored
-            await self.bot.main_channel.send('Switching Morgana/Percival off because Merlin is off.')
+            await self.main_channel.send('Switching Morgana/Percival off because Merlin is off.')
             self.features['morgana'] = False
         # Other weird evil roles
         if self.features['mordred']:
@@ -675,7 +675,7 @@ Lady of the Lake - a card used to learn the alignment of another player''')
         for role in rejected_roles:
             if not isinstance(role, tuple):
                 role = (role,)
-            await self.bot.main_channel.send('Switching %s off because there are not enough players.' % '/'.join([ROLE_NAMES[r.value] for r in role]))
+            await self.main_channel.send('Switching %s off because there are not enough players.' % '/'.join([ROLE_NAMES[r.value] for r in role]))
             for sub in role:
                 feature = ROLE_NAMES[sub.value].lower()
                 if feature in self.features:
@@ -731,13 +731,13 @@ Lady of the Lake - a card used to learn the alignment of another player''')
         else:
             self.leader = self.players[0]
         self.team = []
-        await self.bot.main_channel.send('%s is now the leader. Pick %d people to join the team (possibly including yourself) using "av pick".' % \
+        await self.main_channel.send('%s is now the leader. Pick %d people to join the team (possibly including yourself) using "av pick".' % \
                                      (self.leader.user.mention, self.current_quest[0]))
         # Special messages if necessary
         if self.current_quest[1] == 2:
-            await self.bot.main_channel.send('**Reminder: This quest requires 2 fails instead of 1.**')
+            await self.main_channel.send('**Reminder: This quest requires 2 fails instead of 1.**')
         if self.reject_counter == 4:
-            await self.bot.main_channel.send('**Warning: Evil will win if this quest is rejected.**')
+            await self.main_channel.send('**Warning: Evil will win if this quest is rejected.**')
 
 
 
@@ -747,7 +747,7 @@ Lady of the Lake - a card used to learn the alignment of another player''')
             self.waiting_for_votes = True
             for player in self.players:
                 player.vote = None
-            await self.bot.main_channel.send('''Everyone: the team for this quest is %s.
+            await self.main_channel.send('''Everyone: the team for this quest is %s.
 Please cast your votes **privately** by DMing either "av approve" or "av reject" to %s.''' % \
                                          (', '.join([player.user.mention for player in self.team]), self.bot.user.mention))
 
@@ -756,15 +756,15 @@ Please cast your votes **privately** by DMing either "av approve" or "av reject"
         # Tabulate the votes that were cast
         if self.waiting_for_votes:
             self.waiting_for_votes = False
-            voting_msg = (await self.bot.main_channel.send('Voting for the team has concluded. Results are:\n%s' % \
+            voting_msg = (await self.main_channel.send('Voting for the team has concluded. Results are:\n%s' % \
                                                        '\n'.join(['%s: %s' % (p.user.name, 'Approve' if p.vote == APPROVE else 'Reject') for p in self.players])))
             await voting_msg.delete(delay=VOTE_DELAY) # Delete after a certain time
             if sum([p.vote for p in self.players]) > len(self.players) // 2:
-                await self.bot.main_channel.send('The team consisting of %s was approved!' % ', '.join([player.user.mention for player in self.team]))
+                await self.main_channel.send('The team consisting of %s was approved!' % ', '.join([player.user.mention for player in self.team]))
                 self.reject_counter = 1
                 return True
             self.reject_counter += 1
-            await self.bot.main_channel.send('The team consisting of %s was rejected. Vote tracker is now at **%d** out of 5.' % \
+            await self.main_channel.send('The team consisting of %s was rejected. Vote tracker is now at **%d** out of 5.' % \
                                          (', '.join([player.user.mention for player in self.team]), self.reject_counter))
             await self.check_for_winner()
         return False
@@ -777,7 +777,7 @@ Please cast your votes **privately** by DMing either "av approve" or "av reject"
             self.waiting_for_outcomes = True
             for player in self.team:
                 player.outcome = None
-            await self.bot.main_channel.send('''Everyone who is on the team: please signal the outcome of this quest
+            await self.main_channel.send('''Everyone who is on the team: please signal the outcome of this quest
 **privately** by DMing either "av success" or "av fail" to %s.''' % self.bot.user.mention)
 
 
@@ -785,18 +785,18 @@ Please cast your votes **privately** by DMing either "av approve" or "av reject"
         # Determine whether the quest succeeded
         if self.waiting_for_outcomes:
             self.waiting_for_outcomes = False
-            async with self.bot.main_channel.typing():
+            async with self.main_channel.typing():
                 await asyncio.sleep(5) # Pause for dramatic effect
             n_fails = [p.outcome for p in self.team].count(FAIL)
             if n_fails == 1:
-                await self.bot.main_channel.send('There was 1 Fail card played out of %d.' % len(self.team))
+                await self.main_channel.send('There was 1 Fail card played out of %d.' % len(self.team))
             else:
-                await self.bot.main_channel.send('There were %d Fail cards played out of %d.' % (n_fails, len(self.team)))
+                await self.main_channel.send('There were %d Fail cards played out of %d.' % (n_fails, len(self.team)))
             if n_fails >= self.current_quest[1]:
-                await self.bot.main_channel.send('**The quest has failed.**')
+                await self.main_channel.send('**The quest has failed.**')
                 self.quest_results.append(False)
             else:
-                await self.bot.main_channel.send('**The quest has succeeded!**')
+                await self.main_channel.send('**The quest has succeeded!**')
                 self.quest_results.append(True)
             await self.check_for_winner()
 
@@ -805,29 +805,30 @@ Please cast your votes **privately** by DMing either "av approve" or "av reject"
     async def check_for_winner(self):
         # Check for a winner
         if self.quest_results.count(False) >= 3:
-            await self.bot.main_channel.send('**The game is over. Evil wins!!**')
+            await self.main_channel.send('**The game is over. Evil wins!!**')
             await self.finish_game()
         elif self.reject_counter >= 5:
-            await self.bot.main_channel.send('**The game is over. The vote tracker has reached 5. Evil wins!!**')
+            await self.main_channel.send('**The game is over. The vote tracker has reached 5. Evil wins!!**')
             await self.finish_game()
         elif self.quest_results.count(True) >= 3:
             if self.features['merlin']:
                 self.assassin = [p for p in self.players if Role.ASSASSIN in p.role][0]
                 self.waiting_for_assassin = True
-                await self.bot.main_channel.send('**Good is about to win.** %s, choose someone to assassinate using "av assassinate".' % self.assassin.user.mention)
+                await self.main_channel.send('**Good is about to win.** %s, choose someone to assassinate using "av assassinate".' % self.assassin.user.mention)
+                await self.main_channel.send('**The Minions of Mordred are:** %s' % ', '.join([p.user.mention for p in self.players if p.side == EVIL]))
             else:
-                await self.bot.main_channel.send('**The game is over. Good wins!!**')
+                await self.main_channel.send('**The game is over. Good wins!!**')
                 await self.finish_game()
 
 
     async def finish_game(self):
         # Announce the roles and clear the `running' flag
-        self.owner = None
-        self.running = False
         info = '**Game role reveals:**\n'
         for p in self.players:
             info += '%s: %s\n' % (p.user.mention, '/'.join([ROLE_NAMES[role.value] for role in p.role]))
-        await self.bot.main_channel.send(info)
+        channel = self.main_channel
+        self.close()
+        await channel.send(info)
 
 
         

@@ -56,21 +56,53 @@ class Deck(object):
         self.custom_ratio = 1
 
 
+    deck_cache = {}
+    global_deck = Deck()
+
+
+    def cache_for_server(self, guild):
+        if self.loaded:
+            self.deck_cache[guild.id] = self
+
+
+    @classmethod
+    def load_for_server(cls, guild):
+        for id, deck in self.deck_cache.items():
+            if id == guild.id:
+                return deck
+        new = global_deck.copy()
+        new.cache_for_server(guild)
+        return new
+
+
     def load(self):
         # Load all the questions from the file
-        url = os.getenv('GAMEBOT_SB_QUESTIONS')
-        with urllib.request.urlopen(url) as o:
-            data = o.read()
-        if isinstance(data, bytes):
-            data = data.decode()
-        questions = data.strip().splitlines()
-        separator = questions.index('')
+        if not self.loaded:
+            url = os.getenv('GAMEBOT_SB_QUESTIONS')
+            with urllib.request.urlopen(url) as o:
+                data = o.read()
+            if isinstance(data, bytes):
+                data = data.decode()
+            questions = data.strip().splitlines()
+            separator = questions.index('')
+            self.normal_questions = questions[:separator]
+            self.custom_questions = questions[separator+1:]
+            self.loaded = True
         self.questions = []
-        self.normal_questions = questions[:separator]
-        self.custom_questions = questions[separator+1:]
         self.used_questions = []
-        self.loaded = True
         self.length = 0
+
+
+    def copy(self):
+        # Create and return a copy of this deck
+        new = Deck()
+        new.questions = self.questions[:]
+        new.custom_questions = self.custom_questions[:]
+        new.used_questions = self.used_questions[:]
+        new.loaded = self.loaded
+        new.length = self.length
+        new.custom_ratio = self.custom_ratio
+        return new
 
 
     def shuffle(self):
@@ -128,10 +160,10 @@ class Snarkback(Game):
 
     name = 'Snarkback'
     prefix = 'sb'
+    
 
     def __init__(self, bot):
         Game.__init__(self, bot)
-        self.deck = Deck()
         self.last_start = None
 
     def create_player(self, user):
@@ -148,15 +180,14 @@ class Snarkback(Game):
         self.timer_task     = None  # The current timer task, if any
         self.delay_time     = None  # The current delay set on the timer
         self.starting_time  = None  # The time when the timer started, if any
+        # Create the deck
+        self.deck = Deck.load_for_server(self.main_channel.guild)
 
 
     async def setup(self):
-        try:
-            self.deck.load()
-            if self.owner:
-                await self.bot.main_channel.send('*Snarkback prompts have been loaded!*')
-        except:
-            await self.bot.main_channel.send('*Error loading Snarkback prompts!!*')
+        Deck.global_deck.load()
+        if self.owner:
+            await self.main_channel.send('*Snarkback prompts have been loaded!*')
 
 
     async def start(self, message):
@@ -165,9 +196,13 @@ class Snarkback(Game):
             self.running = False
             return
         if not self.deck.loaded:
-            await message.channel.send('Cannot start: the questions have not been loaded yet. Please wait a moment.')
-            self.running = False
-            return
+            if self.deck.global_deck.loaded:
+                self.deck = self.deck.global_deck.copy()
+                self.deck.cache_for_server(self.main_channel.guild)
+            else:
+                await message.channel.send('Cannot start: the questions have not been loaded yet. Please wait a moment.')
+                self.running = False
+                return
         # Set up the list of questions
         now = datetime.datetime.now()
         if (self.last_start is None) or (now - self.last_start > RESET_DELAY):
@@ -175,7 +210,7 @@ class Snarkback(Game):
         self.last_start = now
         # No upper limit on the number of players :P
         # Make a public announcement
-        await self.bot.main_channel.send('The game has now been started!')
+        await self.main_channel.send('The game has now been started!')
         await self.begin_round()
         
 
@@ -202,12 +237,12 @@ class Snarkback(Game):
                 # Remove the player
                 self.players.remove(player)
                 # Make a public announcement
-                await self.bot.main_channel.send('%s has left the game of %s.' % (message.author.mention, self.name))
+                await self.main_channel.send('%s has left the game of %s.' % (message.author.mention, self.name))
                 if self.running:
                     if len(self.players) < 3:
-                        await self.bot.main_channel.send('The game has been canceled because there are too few players.')
-                        self.running = False
-                        self.owner = None
+                        channel = self.main_channel()
+                        self.close()
+                        await channel.send('The game has been canceled because there are too few players.')
                     else:
                         # Check for things
                         await self.check_for_snarks()
@@ -253,13 +288,13 @@ class Snarkback(Game):
                 waiting = self.waiting()
                 if waiting:
                     if self.snarks:
-                        await self.bot.main_channel.send('*Currently waiting for %d player%s to vote.*' % (len(waiting), '' if len(waiting) == 1 else 's'))
+                        await self.main_channel.send('*Currently waiting for %d player%s to vote.*' % (len(waiting), '' if len(waiting) == 1 else 's'))
                         for p in waiting:
                             await p.user.send('*Waiting for you to vote!*')
                     else:
-                        await self.bot.main_channel.send('*Currently waiting for the following players to reply to prompts: %s*' % ', '.join([p.user.mention for p in waiting]))
+                        await self.main_channel.send('*Currently waiting for the following players to reply to prompts: %s*' % ', '.join([p.user.mention for p in waiting]))
                 else:
-                    await self.bot.main_channel.send('*Not currently waiting for anyone to make a decision.*')
+                    await self.main_channel.send('*Not currently waiting for anyone to make a decision.*')
 
 
 
@@ -276,14 +311,14 @@ class Snarkback(Game):
             # For now, the host is allowed to change the timer settings mid-game; they'll
             # go into effect the next time something happens that would require a timer.
             self.timed = True
-            await self.bot.main_channel.send('*Timer mode has been turned on.*')
+            await self.main_channel.send('*Timer mode has been turned on.*')
 
             
     async def sb_notimer(self, message):
         '''Turn off timer mode'''
         if (await self.check_owner(message)):
             self.timed = False
-            await self.bot.main_channel.send('*Timer mode has been turned off.*')
+            await self.main_channel.send('*Timer mode has been turned off.*')
 
 
 
@@ -308,33 +343,34 @@ class Snarkback(Game):
 
     async def sb_ratio(self, message):
         '''Set or query the custom question ratio'''
-        spl = message.content.split()
-        if len(spl) == 2:
-            await message.channel.send('*The custom question ratio is %d to 1*' % self.deck.custom_ratio)
-            return
-        if len(spl) != 3:
-            n = None
-        else:
-            try:
-                n = int(spl[2])
-            except ValueError:
+        if (await self.check_game(message)):
+            spl = message.content.split()
+            if len(spl) == 2:
+                await message.channel.send('*The custom question ratio is %d to 1*' % self.deck.custom_ratio)
+                return
+            if len(spl) != 3:
                 n = None
-        if n is None:
-            await message.channel.send('Syntax: sb ratio [number]')
-            return
-        if n < 0:
-            await message.channel.send('Cannot set negative ratio')
-            return
-        if n > 10:
-            await message.channel.send('Ratio is too large')
-            return
-        if self.running:
-            await message.channel.send('Cannot change ratio in the middle of a game')
-            return
-        self.deck.custom_ratio = n
-        if self.deck.loaded:
-            self.deck.shuffle()
-        await self.bot.main_channel.send('*The custom question ratio has been set to %d to 1*' % n)
+            else:
+                try:
+                    n = int(spl[2])
+                except ValueError:
+                    n = None
+            if n is None:
+                await message.channel.send('Syntax: sb ratio [number]')
+                return
+            if n < 0:
+                await message.channel.send('Cannot set negative ratio')
+                return
+            if n > 10:
+                await message.channel.send('Ratio is too large')
+                return
+            if self.running:
+                await message.channel.send('Cannot change ratio in the middle of a game')
+                return
+            self.deck.custom_ratio = n
+            if self.deck.loaded:
+                self.deck.shuffle()
+            await self.main_channel.send('*The custom question ratio has been set to %d to 1*' % n)
         
 
 
@@ -342,9 +378,9 @@ class Snarkback(Game):
     async def begin_round(self):
         # Start the next round
         if self.round == 3:
-            await self.bot.main_channel.send('**The game is over.** Thank you for playing!')
-            self.owner = None
-            self.running = False
+            channel = self.main_channel
+            self.close()
+            await channel.send('**The game is over.** Thank you for playing!')
             return # And we're done!
         self.round += 1
         self.snarks = []
@@ -377,9 +413,9 @@ class Snarkback(Game):
             for player in self.players:
                 player.prompts = self.prompts[:]
         # Prompt all the players
-        await self.bot.main_channel.send('**Round %d has begun!** All players, please check your DMs and reply to the prompts using "sb snark [reply]"' % self.round)
+        await self.main_channel.send('**Round %d has begun!** All players, please check your DMs and reply to the prompts using "sb snark [reply]"' % self.round)
         if self.round == 3:
-            await self.bot.main_channel.send('Everyone gets the same prompt!\n**Prompt:** %s' % self.prompts[0])
+            await self.main_channel.send('Everyone gets the same prompt!\n**Prompt:** %s' % self.prompts[0])
         if self.timed:
             # Start the timer if necessary
             delay = (PROMPT_TIMER if self.round < 3 else FINAL_PROMPT_TIMER)
@@ -392,7 +428,7 @@ class Snarkback(Game):
 
 
     async def timer(self, msg, delay, after):
-        message = (await self.bot.main_channel.send('%s: less than **%d** seconds' % (msg, delay)))
+        message = (await self.main_channel.send('%s: less than **%d** seconds' % (msg, delay)))
         loop = asyncio.get_running_loop()
         self.starting_time = loop.time()
         remaining = self.delay_time = delay
@@ -430,7 +466,7 @@ class Snarkback(Game):
     async def end_prompt(self):
         if not self.snarks:
             self.shuffle_snarks()
-            await self.bot.main_channel.send('Thanks for your awesome replies! Now let\'s start voting!')
+            await self.main_channel.send('Thanks for your awesome replies! Now let\'s start voting!')
             await self.next_vote()
 
 
@@ -519,8 +555,8 @@ class Snarkback(Game):
         self.current_snark = self.snarks.pop(0)
         prompt = self.current_snark[0]
         replies = self.current_snark[1:]
-        await self.bot.main_channel.send('**Next prompt:**')
-        async with self.bot.main_channel.typing():
+        await self.main_channel.send('**Next prompt:**')
+        async with self.main_channel.typing():
             await asyncio.sleep(5) # Pause for dramatic effect
         # Put together the snark embed
         embed = discord.Embed(title=self.name, description=prompt, type='rich', colour=self.colour())
@@ -533,28 +569,28 @@ class Snarkback(Game):
             embed.add_field(name='**%d.**' % i, value=reply, inline=False)
             if self.round != 3:
                 nonvoting.append(player)
-        await self.bot.main_channel.send(embed=embed)
+        await self.main_channel.send(embed=embed)
         # Check for a no-contest
         if (self.round != 3) and blank:
             if len(blank) == 2:
-                await self.bot.main_channel.send('Neither %s nor %s replied to the prompt, so nobody gets any points.' % \
+                await self.main_channel.send('Neither %s nor %s replied to the prompt, so nobody gets any points.' % \
                                                  (replies[0][1].user.mention, replies[1][1].user.mention))
             else:
                 b = replies[blank[0] - 1][1]
                 a = replies[2 - blank[0]][1]
                 points = 1000 * self.round
-                await self.bot.main_channel.send('%s replied, but %s did not, so %s gets the full %d points.' % \
+                await self.main_channel.send('%s replied, but %s did not, so %s gets the full %d points.' % \
                                                  (a.user.mention, b.user.mention, a.user.mention, points))
                 a.round_score += points
             await self.next_vote()
             return
         # Check for a jinx
         if (self.round != 3) and (replies[0][0] == replies[1][0]):
-            await self.bot.main_channel.send('**Jinx!** Both snarks (%s and %s) are exactly the same. Nobody gets any points.' % \
+            await self.main_channel.send('**Jinx!** Both snarks (%s and %s) are exactly the same. Nobody gets any points.' % \
                                              (replies[0][1].user.mention, replies[1][1].user.mention))
             await self.next_vote()
             return
-        await self.bot.main_channel.send('Everyone: please vote on a reply to the prompt. Do this by DMing "sb vote [num]" to %s, \
+        await self.main_channel.send('Everyone: please vote on a reply to the prompt. Do this by DMing "sb vote [num]" to %s, \
 where [num] is the integer number of the snark. People who are not part of the game can vote too! Also you can type "sb vote 0" to abstain.' \
                                          % self.bot.user.mention)
         # Set up everyone's voting data
@@ -661,7 +697,7 @@ where [num] is the integer number of the snark. People who are not part of the g
         # Figure out who won and how many points to award
         total_votes = sum([len(p.votes) - p.votes.count(0) for p in self.players]) + len(self.audience_votes)
         if not total_votes:
-            await self.bot.main_channel.send('Nobody voted, so *nobody gets any points!*')
+            await self.main_channel.send('Nobody voted, so *nobody gets any points!*')
             return
         results = []
         for i, (reply, player) in enumerate(self.current_snark[1:], 1):
@@ -699,24 +735,24 @@ where [num] is the integer number of the snark. People who are not part of the g
             results.append((embed, score))
         # Sort the lines and print them out one by one
         results.sort(key = lambda x: x[1])
-        await self.bot.main_channel.send('And the results are...')
+        await self.main_channel.send('And the results are...')
         for embed, score in results:
-            async with self.bot.main_channel.typing():
+            async with self.main_channel.typing():
                 await asyncio.sleep(3) # Pause for dramatic effect
-            await self.bot.main_channel.send(embed=embed)
+            await self.main_channel.send(embed=embed)
         
         
                     
         
     async def finish_round(self):
-        await self.bot.main_channel.send('**Round %d has ended!** The results are...' % self.round)
-        async with self.bot.main_channel.typing():
+        await self.main_channel.send('**Round %d has ended!** The results are...' % self.round)
+        async with self.main_channel.typing():
             await asyncio.sleep(5) # Pause for dramatic effect
         for p in self.players:
             p.score += p.round_score
             p.round_score = 0
         players = sorted(self.players, key = lambda x: x.score, reverse=True)
-        await self.bot.main_channel.send('\n'.join(['%s: %d' % (player.user.mention, player.score) for player in players]))
+        await self.main_channel.send('\n'.join(['%s: %d' % (player.user.mention, player.score) for player in players]))
         await self.begin_round() # Start the next round
         
 

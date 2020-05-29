@@ -171,25 +171,25 @@ class SecretHitler(Game):
         '''Pokes people who need to make a decision'''
         if (await self.check_running(message)):
             if self.waiting_for_nomination:
-                await self.bot.main_channel.send('*Currently waiting for %s to nominate a %s*' % (self.president.user.mention,
-                                                                                                  'deputy coach' if self.amc_mode else \
-                                                                                                  'candidate for chancellor'))
+                await self.main_channel.send('*Currently waiting for %s to nominate a %s*' % (self.president.user.mention,
+                                                                                              'deputy coach' if self.amc_mode else \
+                                                                                              'candidate for chancellor'))
             elif self.waiting_for_votes:
-                await self.bot.main_channel.send('*Currently waiting for the following players to cast their votes: %s*' % \
-                                                 ', '.join([p.user.mention for p in self.players if p.vote is None]))
+                await self.main_channel.send('*Currently waiting for the following players to cast their votes: %s*' % \
+                                             ', '.join([p.user.mention for p in self.players if p.vote is None]))
             elif self.waiting_for_president:
-                await self.bot.main_channel.send('*Currently waiting for %s to %s*' % (self.president.user.mention,
-                                                                                      'trivialize a math problem' if self.amc_mode else \
-                                                                                      'discard a policy'))
+                await self.main_channel.send('*Currently waiting for %s to %s*' % (self.president.user.mention,
+                                                                                   'trivialize a math problem' if self.amc_mode else \
+                                                                                    'discard a policy'))
             elif self.waiting_for_chancellor:
-                await self.bot.main_channel.send('*Currently waiting for %s to %s*' % (self.chancellor.user.mention,
-                                                                                      'solve a math problem' if self.amc_mode else \
-                                                                                      'enact a policy'))
+                await self.main_channel.send('*Currently waiting for %s to %s*' % (self.chancellor.user.mention,
+                                                                                   'solve a math problem' if self.amc_mode else \
+                                                                                   'enact a policy'))
             elif self.waiting_for_special:
-                await self.bot.main_channel.send('*Currently waiting for %s to exercise a presidential power: %s*' % (self.president.user.mention,
-                                                                                                                     self.POWER_NAMES[self.board[self.fascist_policies-1]]))                                                                                   
+                await self.main_channel.send('*Currently waiting for %s to exercise a presidential power: %s*' % (self.president.user.mention,
+                                                                                                                  self.POWER_NAMES[self.board[self.fascist_policies-1]]))                                                                                   
             else:
-                await self.bot.main_channel.send('*Not currently waiting for anyone to make a decision.*')
+                await self.main_channel.send('*Not currently waiting for anyone to make a decision.*')
 
 
     async def sh_powers(self, message):
@@ -228,7 +228,7 @@ class SecretHitler(Game):
             await message.channel.send('Cannot start: this game has too %s players' % ('few' if len(self.players) < 5 else 'many'))
             return
         # Make a public announcement
-        await self.bot.main_channel.send('The game has now been started!')
+        await self.main_channel.send('The game has now been started!')
         # Set up the game
         random.seed() # Seed the random number generator
         random.shuffle(self.players) # Randomize the play order
@@ -268,9 +268,9 @@ class SecretHitler(Game):
             self.chancellor = chancellor
             self.waiting_for_nomination = False
             # Make a public announcement:
-            await self.bot.main_channel.send('%s picked %s to be %s.' % (self.president.user.mention,
-                                                                         self.chancellor.user.mention,
-                                                                         ('deputy coach' if self.amc_mode else 'chancellor')))
+            await self.main_channel.send('%s picked %s to be %s.' % (self.president.user.mention,
+                                                                     self.chancellor.user.mention,
+                                                                     ('deputy coach' if self.amc_mode else 'chancellor')))
             # Start voting!
             await self.init_voting()
 
@@ -424,14 +424,14 @@ class SecretHitler(Game):
                     return
             # Veto as chancellor
             if message.author == self.chancellor.user:
-                await self.bot.main_channel.send('**%s wishes to veto.** %s, please respond using either "sh veto" or "sh noveto".' % \
-                                                 (self.chancellor.user.mention, self.president.user.mention))
+                await self.main_channel.send('**%s wishes to veto.** %s, please respond using either "sh veto" or "sh noveto".' % \
+                                             (self.chancellor.user.mention, self.president.user.mention))
                 self.waiting_for_chancellor = False
                 self.waiting_for_veto = True
                 return
             # Veto as president
             self.waiting_for_veto = False
-            await self.bot.main_channel.send('**%s agrees to the veto.**' % self.president.user.mention)
+            await self.main_channel.send('**%s agrees to the veto.**' % self.president.user.mention)
             for p in (self.president, self.chancellor):
                 self.unmute(p)
             await self.shuffle_policies()
@@ -449,9 +449,9 @@ class SecretHitler(Game):
             # Decline a veto as president
             self.waiting_for_veto = False
             self.waiting_for_chancellor = True
-            await self.bot.main_channel.send('**%s has refused to allow the veto.** %s, please choose a %s.' % \
-                                             (self.president.user.mention, self.chancellor.user.mention,
-                                              'problem to solve' if self.amc_mode else 'policy to enact'))
+            await self.main_channel.send('**%s has refused to allow the veto.** %s, please choose a %s.' % \
+                                         (self.president.user.mention, self.chancellor.user.mention,
+                                          'problem to solve' if self.amc_mode else 'policy to enact'))
 
 
 
@@ -481,8 +481,8 @@ class SecretHitler(Game):
                 return
             self.waiting_for_special = False
             # Make a public announcement
-            await self.bot.main_channel.send('**%s:** %s has chosen to investigate %s.' % \
-                                             (self.POWER_NAMES[INVESTIGATE_LOYALTY], self.president.user.mention, player.user.mention))
+            await self.main_channel.send('**%s:** %s has chosen to investigate %s.' % \
+                                         (self.POWER_NAMES[INVESTIGATE_LOYALTY], self.president.user.mention, player.user.mention))
             # Send a private message
             await self.president.user.send('Investigative result: %s is a **%s**' % (player.user.name, self.ROLE_NAMES[player.party]))
             # Advance the team
@@ -516,10 +516,10 @@ class SecretHitler(Game):
             self.chancellor = None
             self.waiting_for_special = False
             # Make a public announcement
-            await self.bot.main_channel.send('**%s:** %s has appointed %s as the next %s.' % \
-                                             (self.POWER_NAMES[SPECIAL_ELECTION],
-                                              self.last_president.user.mention, self.president.user.mention,
-                                              'head coach' if self.amc_mode else 'president'))
+            await self.main_channel.send('**%s:** %s has appointed %s as the next %s.' % \
+                                         (self.POWER_NAMES[SPECIAL_ELECTION],
+                                          self.last_president.user.mention, self.president.user.mention,
+                                          'head coach' if self.amc_mode else 'president'))
             # Initialize the team
             await self.init_team()
 
@@ -548,16 +548,16 @@ class SecretHitler(Game):
             self.dead_players.append(player)
             self.mute(player)
             # Make a public announcement
-            await self.bot.main_channel.send('**%s:** %s has chosen to %s %s.' % \
-                                             (self.POWER_NAMES[EXECUTION], self.president.user.mention,
-                                              'disqualify' if self.amc_mode else 'execute',
-                                              player.user.mention))
+            await self.main_channel.send('**%s:** %s has chosen to %s %s.' % \
+                                         (self.POWER_NAMES[EXECUTION], self.president.user.mention,
+                                          'disqualify' if self.amc_mode else 'execute',
+                                          player.user.mention))
             # Check if they've killed Hitler
             if player.role == HITLER:
-                await self.bot.main_channel.send('**The game is over. %s has been %s. %ss win!!**' % \
-                                                 (self.ROLE_NAMES[HITLER],
-                                                  'disqualified' if self.amc_mode else 'executed',
-                                                  self.ROLE_NAMES[LIBERAL]))
+                await self.main_channel.send('**The game is over. %s has been %s. %ss win!!**' % \
+                                             (self.ROLE_NAMES[HITLER],
+                                             'disqualified' if self.amc_mode else 'executed',
+                                             self.ROLE_NAMES[LIBERAL]))
                 await self.finish_game()
                 return
             # Advance the team
@@ -642,13 +642,13 @@ class SecretHitler(Game):
 
     async def init_team(self):
         # Initialize the new leadership
-        await self.bot.main_channel.send('%s is now the %s. Nominate a candidate for %s using "sh nominate".' % \
+        await self.main_channel.send('%s is now the %s. Nominate a candidate for %s using "sh nominate".' % \
                                      (self.president.user.mention,
                                       'head coach' if self.amc_mode else 'president',
                                       'deputy coach' if self.amc_mode else 'chancellor'))
         # Special messages if necessary
         if self.election_tracker == 2:
-            await self.bot.main_channel.send('**Warning: A random %s will be %s if this vote fails.**' % \
+            await self.main_channel.send('**Warning: A random %s will be %s if this vote fails.**' % \
                                              ('problem' if self.amc_mode else 'policy',
                                               'solved' if self.amc_mode else 'enacted'))
         self.waiting_for_nomination = True
@@ -660,7 +660,7 @@ class SecretHitler(Game):
         if not self.waiting_for_votes:
             for player in self.players:
                 player.vote = None
-            await self.bot.main_channel.send('''Everyone: the candidates are %s for %s and %s for %s.
+            await self.main_channel.send('''Everyone: the candidates are %s for %s and %s for %s.
 Please cast your votes **privately** by DMing either "sh ja" or "sh nein" to %s.''' % \
                                              (self.president.user.mention,
                                               'head coach' if self.amc_mode else 'president',
@@ -675,11 +675,11 @@ Please cast your votes **privately** by DMing either "sh ja" or "sh nein" to %s.
         # Tabulate the votes that were cast
         if self.waiting_for_votes:
             self.waiting_for_votes = False
-            voting_msg = (await self.bot.main_channel.send('Voting has concluded. Results are:\n%s' % \
+            voting_msg = (await self.main_channel.send('Voting has concluded. Results are:\n%s' % \
                                                        '\n'.join(['%s: %s' % (p.user.name, 'Ja' if p.vote == JA else 'Nein') for p in self.players])))
             await voting_msg.delete(delay=VOTE_DELAY) # Delete after a certain time
             if sum([p.vote for p in self.players]) > len(self.players) // 2:
-                await self.bot.main_channel.send('The team of %s and %s was approved!' % (self.president.user.mention, self.chancellor.user.mention))
+                await self.main_channel.send('The team of %s and %s was approved!' % (self.president.user.mention, self.chancellor.user.mention))
                 self.election_tracker = 0
                 # Impose term limits
                 if len(self.players) == 5:
@@ -688,15 +688,15 @@ Please cast your votes **privately** by DMing either "sh ja" or "sh nein" to %s.
                     self.term_limited = [self.president, self.chancellor]
                 # Check right now if Hitler was elected chancellor
                 if (self.chancellor.role == HITLER) and (self.fascist_policies >= 3):
-                    await self.bot.main_channel.send('**The game is over. %s has been elected %s. %ss win!!**' % \
-                                                     (self.ROLE_NAMES[HITLER],
-                                                      'deputy coach' if self.amc_mode else 'chancellor',
-                                                      self.ROLE_NAMES[FASCIST]))
+                    await self.main_channel.send('**The game is over. %s has been elected %s. %ss win!!**' % \
+                                                 (self.ROLE_NAMES[HITLER],
+                                                 'deputy coach' if self.amc_mode else 'chancellor',
+                                                 self.ROLE_NAMES[FASCIST]))
                     await self.finish_game()
                     return False
                 return True
             self.election_tracker += 1
-            await self.bot.main_channel.send('The team of %s and %s was rejected. Election tracker is now at **%d** out of 3.' % \
+            await self.main_channel.send('The team of %s and %s was rejected. Election tracker is now at **%d** out of 3.' % \
                                              (self.president.user.mention, self.chancellor.user.mention, self.election_tracker))
             if self.election_tracker == 3:
                 await self.chaos()
@@ -713,7 +713,7 @@ Please cast your votes **privately** by DMing either "sh ja" or "sh nein" to %s.
             self.liberal_policies += 1
         else:
             self.fascist_policies += 1
-        await self.bot.main_channel.send('**Chaos:** The top %s from the deck, a **%s %s**, has been %s.' % \
+        await self.main_channel.send('**Chaos:** The top %s from the deck, a **%s %s**, has been %s.' % \
                                          ('problem' if self.amc_mode else 'policy',
                                           self.POLICY_NAMES[policy],
                                           'problem' if self.amc_mode else 'policy',
@@ -729,7 +729,7 @@ Please cast your votes **privately** by DMing either "sh ja" or "sh nein" to %s.
         if len(self.policy_deck) < 3:
             self.policy_deck = [LIBERAL] * (6 - self.liberal_policies) + [FASCIST] * (11 - self.fascist_policies)
             random.shuffle(self.policy_deck)
-            await self.bot.main_channel.send('*Shuffling the %s deck...*' % ('problem' if self.amc_mode else 'policy'))
+            await self.main_channel.send('*Shuffling the %s deck...*' % ('problem' if self.amc_mode else 'policy'))
 
 
 
@@ -754,7 +754,7 @@ Please cast your votes **privately** by DMing either "sh ja" or "sh nein" to %s.
 
     async def tabulate_policies(self):
         # Determine what kind of policy was passed
-        async with self.bot.main_channel.typing():
+        async with self.main_channel.typing():
             await asyncio.sleep(5) # Pause for dramatic effect
         policy = self.policies[0]
         self.policies = []
@@ -762,9 +762,9 @@ Please cast your votes **privately** by DMing either "sh ja" or "sh nein" to %s.
             self.liberal_policies += 1
         else:
             self.fascist_policies += 1
-        await self.bot.main_channel.send('**A %s %s was %s.**' % (self.POLICY_NAMES[policy],
-                                                                  'problem' if self.amc_mode else 'policy',
-                                                                  'solved' if self.amc_mode else 'enacted'))
+        await self.main_channel.send('**A %s %s was %s.**' % (self.POLICY_NAMES[policy],
+                                                              'problem' if self.amc_mode else 'policy',
+                                                              'solved' if self.amc_mode else 'enacted'))
         for p in (self.president, self.chancellor):
             self.unmute(p) # Let the president and chancellor talk again
         await self.check_for_winner()
@@ -772,28 +772,28 @@ Please cast your votes **privately** by DMing either "sh ja" or "sh nein" to %s.
         if self.running and (policy == FASCIST):
             # Make any special announcements necessary
             if self.fascist_policies == 3:
-                await self.bot.main_channel.send('**Warning: %ss will win if %s is elected %s.**' % \
+                await self.main_channel.send('**Warning: %ss will win if %s is elected %s.**' % \
                                                  (self.ROLE_NAMES[FASCIST], self.ROLE_NAMES[HITLER],
                                                   'deputy coach' if self.amc_mode else 'chancellor'))
             elif self.fascist_policies == 5:
-                await self.bot.main_channel.send('**Veto power has been unlocked!** In the future, the %s \
+                await self.main_channel.send('**Veto power has been unlocked!** In the future, the %s \
 may move to veto an agenda proposed by the %s by typing "sh veto".' % \
                                                  ('deputy coach' if self.amc_mode else 'chancellor',
                                                   'head coach' if self.amc_mode else 'president'))
             # Figure out if the President gets to use a special power
             power = self.board[self.fascist_policies - 1]
             if power == INVESTIGATE_LOYALTY:
-                await self.bot.main_channel.send('**%s:** %s, choose someone to investigate using "sh investigate".' % \
+                await self.main_channel.send('**%s:** %s, choose someone to investigate using "sh investigate".' % \
                                                  (self.POWER_NAMES[power], self.president.user.mention))
                 self.waiting_for_special = True
             elif power == SPECIAL_ELECTION:
-                await self.bot.main_channel.send('**%s:** %s, choose someone to be the next candidate for %s using "sh elect".' % \
+                await self.main_channel.send('**%s:** %s, choose someone to be the next candidate for %s using "sh elect".' % \
                                                  (self.POWER_NAMES[power], self.president.user.mention,
                                                   'head coach' if self.amc_mode else 'president'))
                 self.waiting_for_special = True
             elif power == POLICY_PEEK:
                 # This one happens right away, since the president doesn't have to make a decision
-                await self.bot.main_channel.send('**%s:** *%s has looked at the top three %s in the deck.*' % \
+                await self.main_channel.send('**%s:** *%s has looked at the top three %s in the deck.*' % \
                                                  (self.POWER_NAMES[power], self.president.user.mention,
                                                   'problems' if self.amc_mode else 'policies'))
                 await self.president.user.send('**%s:** The top three %s in the deck are: %s. (The first one is on top.)' % \
@@ -801,7 +801,7 @@ may move to veto an agenda proposed by the %s by typing "sh veto".' % \
                                                 'problems' if self.amc_mode else 'policies',
                                                 ', '.join([self.POLICY_NAMES[i] for i in self.policy_deck[-1:-4:-1]])))
             elif power == EXECUTION:
-                await self.bot.main_channel.send('**%s:** %s, choose someone to %s using "sh %s".' % \
+                await self.main_channel.send('**%s:** %s, choose someone to %s using "sh %s".' % \
                                                  (self.POWER_NAMES[power], self.president.user.mention,
                                                   'disqualify' if self.amc_mode else 'execute',
                                                   'disqualify' if self.amc_mode else 'execute'))
@@ -814,23 +814,21 @@ may move to veto an agenda proposed by the %s by typing "sh veto".' % \
     async def check_for_winner(self):
         # Check for a winner
         if self.fascist_policies == 6:
-            await self.bot.main_channel.send('**The game is over. %ss win!!**' % self.ROLE_NAMES[FASCIST])
+            await self.main_channel.send('**The game is over. %ss win!!**' % self.ROLE_NAMES[FASCIST])
             await self.finish_game()
         elif self.liberal_policies == 5:
-            await self.bot.main_channel.send('**The game is over. %ss win!!**' % self.ROLE_NAMES[LIBERAL])
+            await self.main_channel.send('**The game is over. %ss win!!**' % self.ROLE_NAMES[LIBERAL])
             await self.finish_game()
 
 
 
     async def finish_game(self):
         # Announce the roles and clear the `running' flag
-        self.owner = None
-        self.running = False
         info = '**Game role reveals:**\n'
         for p in self.players + self.dead_players:
             info += '%s: %s\n' % (p.user.mention, self.ROLE_NAMES[p.role])
-        await self.bot.main_channel.send(info)
-        # Unmute everyone
-        self.unmute_all()
+        channel = self.main_channel
+        self.close()
+        await channel.send(info)
             
 

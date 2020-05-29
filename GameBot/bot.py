@@ -16,10 +16,9 @@ class GameBot(discord.Client):
 
     def __init__(self, game_classes, debug=False):
         discord.Client.__init__(self)
-        self.games = [cls(self) for cls in game_classes]
-        self.main_channel = None # The default channel to post messages in
-        self.ping_channel = None # The default channel to ping
-        self.last_ping = None # Keep a delay on pings in #off-topic so they don't flood it
+        self.main_channels = {}
+        self.ping_channels = {}
+        self.last_ping = {} # Keep a delay on pings so they don't flood the channel
         self.DEBUG = debug
         self.connected = False
         self.muted = []
@@ -27,28 +26,36 @@ class GameBot(discord.Client):
 
     def init_channels(self):
         # Find the #game-corner and #game-talk channels
-        if self.main_channel is None:
-            self.main_channel = discord.utils.get(self.get_all_channels(), id=int(os.getenv('GAMEBOT_DEFAULT_CHANNEL')))
-        if self.ping_channel is None:
-            ping_channel = os.getenv('GAMEBOT_PING_CHANNEL')
-            if ping_channel:
-                self.ping_channel = discord.utils.get(self.get_all_channels(), id=int(ping_channel))
+        for guild in self.guilds:
+            if guild.id not in self.main_channels:
+                channel = (discord.utils.get(self.get_all_channels(), guild=guild, name='game-corner') or \
+                           discord.utils.get(self.get_all_channels(), guild=guild, name='general') or \
+                           discord.utils.get(self.get_all_channels(), guild=guild))
+                self.main_channels[guild.id] = channel
+            if guild.id not in self.ping_channels:
+                channel = discord.utils.get(self.get_all_channels(), guild=guild, name='game-talk')
+                self.ping_channels[guild.id] = channel
+            self.last_ping[guild.id] = None
         
 
     async def on_ready(self):
         self.init_channels()
         if (not self.connected) or any([game.running for game in self.games]):
-            await self.main_channel.send('%s is now online' % self.user.mention)
-            if not self.connected and self.ping_channel:
-                if self.last_ping is None:
-                    # Find the last ping if any
-                    now = datetime.datetime.utcnow()
-                    async for message in self.ping_channel.history(after = now - PING_DELAY, oldest_first=False):
-                        if message.author == self.user:
-                            # The only reason we ever post in #game-talk is to ping.
-                            self.last_ping = message.created_at
-                            break
-                await asyncio.gather(*[game.setup() for game in self.games])
+            for channel in self.main_channels.values():
+                if channel:
+                    await channel.send('%s is now online' % self.user.mention)
+            if not self.connected:
+                for id, channel in self.ping_channels.items():
+                    if channel:
+                        if self.last_ping[id] is None:
+                            # Find the last ping if any
+                            now = datetime.datetime.utcnow()
+                            async for message in channel.history(after = now - PING_DELAY, oldest_first=False):
+                                if message.author == self.user:
+                                    # The only reason we ever post in #game-talk is to ping.
+                                    self.last_ping[id] = message.created_at
+                                    break
+                        await asyncio.gather(*[game.setup() for game in self.games])
                 self.connected = True
 
 
@@ -58,28 +65,50 @@ class GameBot(discord.Client):
         if message.author == self.user:
             return
         self.init_channels()
-        if message.channel.type == discord.ChannelType.private:
-            if message.author not in self.main_channel.guild.members:
-                await message.channel.send('%s is not currently active on this server.' % self.user.mention)
-                return
-            allowed = True
-        else:
-            allowed = (message.guild == self.main_channel.guild)
         # Figure out which game, if any, the message is referring to
         content = message.content.lower()
+        matching_games = []
         for game in self.games:
             if content.startswith(game.prefix + ' '):
-                command = content.split(None, 2)[1]
-                if command in game.cmd_lookup:
-                    if allowed:
-                        await game.cmd_lookup[command](message)
-                    else:
-                        await message.channel.send('%s is not currently active on this server.' % self.user.mention)
+                matching_games.append(game)
+        # First, figure out if we're a player in any of these games
+        if matching_games:
+            matching_game = None
+            for game in matching_games:
+                if game.find_player(message.author):
+                    matching_game = game
                     break
+            else:
+                # Next, figure out if we're in the same channel as any of these games
+                for game in matching_games:
+                    if game.main_channel == message.channel:
+                        matching_game = game
+                        break
+                else:
+                    # Next, figure out if there's a game as this one
+                    for game in matching_games:
+                        if game.main_channel and (game.main_channel.guild == message.channel.guild):
+                            matching_game = game
+                            break
+                    else:
+                        # Finally, figure out if this user has a server in common with this game (if this is a DM)
+                        if message.channel.type == discord.ChannelType.private:
+                            for game in matching_games:
+                                if game.main_channel and (message.author in game.main_channel.guild.members):
+                                    matching_game = game
+                                    break
+                            else:
+                                matching_game = matching_games[0]
+            # Invoke the command if we can find it
+            if matching_game:
+                command = content.split(None, 2)[1]
+                if command in matching_game.lookup:
+                    await matching_game.cmd_lookup[command](message)
         # If we're muted, delete this message
-        if message.channel == self.main_channel:
-            if any([muted.user == message.author for muted in self.muted]):
+        for user, game in self.muted:
+            if (user == message.author) and (game.main_channel == message.channel):
                 await message.delete()
+                break
 
 
     def run(self):
