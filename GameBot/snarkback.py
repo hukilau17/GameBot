@@ -69,7 +69,7 @@ class Deck(object):
         for id, deck in cls.deck_cache.items():
             if id == guild.id:
                 return deck
-        new = global_deck.copy()
+        new = cls.global_deck.copy()
         new.cache_for_server(guild)
         return new
 
