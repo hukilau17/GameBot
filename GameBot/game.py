@@ -200,8 +200,8 @@ class Game(object):
                 if message.guild:
                     role = discord.utils.get(message.guild.roles, name=str(os.getenv('GAMEBOT_ROLE_NAME')))
                     if role:
-                        self.bot.last_ping = now
-                        await self.bot.ping_channel.send('%s: a game of %s has been created in %s!' % (role.mention, game.name, game.main_channel.mention))
+                        self.bot.last_ping[id] = now
+                        await game.bot.ping_channels[id].send('%s: a game of %s has been created in %s!' % (role.mention, game.name, game.main_channel.mention))
         # Start the timer
         game.starting_timer_task = asyncio.create_task(game.starting_timer())
 
