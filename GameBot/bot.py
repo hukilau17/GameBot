@@ -103,7 +103,7 @@ class GameBot(discord.Client):
             # Invoke the command if we can find it
             if matching_game:
                 command = content.split(None, 2)[1]
-                if command in matching_game.lookup:
+                if command in matching_game.cmd_lookup:
                     await matching_game.cmd_lookup[command](message)
         # If we're muted, delete this message
         for user, game in self.muted:
