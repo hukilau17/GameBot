@@ -36,7 +36,7 @@ class GameBot(discord.Client):
             if guild.id not in self.ping_channels:
                 channel = discord.utils.get(self.get_all_channels(), guild=guild, name='game-talk')
                 self.ping_channels[guild.id] = channel
-            self.last_ping[guild.id] = None
+                self.last_ping[guild.id] = None
         
 
     async def on_ready(self):
