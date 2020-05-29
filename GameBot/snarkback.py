@@ -57,7 +57,6 @@ class Deck(object):
 
 
     deck_cache = {}
-    global_deck = Deck()
 
 
     def cache_for_server(self, guild):
@@ -134,7 +133,7 @@ class Deck(object):
             
             
         
-
+Deck.global_deck = Deck()
     
         
 
