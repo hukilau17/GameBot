@@ -72,17 +72,17 @@ class GameBot(discord.Client):
         for game in self.games:
             if content.startswith(game.prefix + ' '):
                 matching_games.append(game)
-        # First, figure out if we're a player in any of these games
+        # First, figure out if we're in the same channel as any of these games
         if matching_games:
             matching_game = None
             for game in matching_games:
-                if game.find_player(message.author):
+                if game.main_channel == message.channel:
                     matching_game = game
                     break
             else:
-                # Next, figure out if we're in the same channel as any of these games
+                # Next, figure out if we're a player in any of these games
                 for game in matching_games:
-                    if game.main_channel == message.channel:
+                    if game.find_player(message.author):
                         matching_game = game
                         break
                 else:
