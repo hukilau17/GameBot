@@ -86,7 +86,7 @@ class GameBot(discord.Client):
                         matching_game = game
                         break
                 else:
-                    # Next, figure out if there's a game as this one
+                    # Next, figure out if there's a game on the same server as this one
                     for game in matching_games:
                         if game.main_channel and (game.main_channel.guild == message.channel.guild):
                             matching_game = game
@@ -100,6 +100,8 @@ class GameBot(discord.Client):
                                     break
                             else:
                                 matching_game = matching_games[0]
+                        else:
+                            matching_game = matching_games[0]
             # Invoke the command if we can find it
             if matching_game:
                 command = content.split(None, 2)[1]

@@ -370,7 +370,7 @@ class Game(object):
         '''Roll some number of die'''
         words = message.content.split()
         if len(words) == 3:
-            dice = words[0]
+            dice = words[2]
             if dice.startswith('d'):
                 dice = '1' + dice
             try:
