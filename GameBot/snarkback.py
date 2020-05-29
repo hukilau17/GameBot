@@ -66,7 +66,7 @@ class Deck(object):
 
     @classmethod
     def load_for_server(cls, guild):
-        for id, deck in self.deck_cache.items():
+        for id, deck in cls.deck_cache.items():
             if id == guild.id:
                 return deck
         new = global_deck.copy()
