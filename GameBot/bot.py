@@ -16,6 +16,7 @@ class GameBot(discord.Client):
 
     def __init__(self, game_classes, debug=False):
         discord.Client.__init__(self)
+        self.games = [cls(self) for cls in game_classes]
         self.main_channels = {}
         self.ping_channels = {}
         self.last_ping = {} # Keep a delay on pings so they don't flood the channel
