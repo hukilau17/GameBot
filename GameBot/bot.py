@@ -88,7 +88,7 @@ class GameBot(discord.Client):
                 else:
                     # Next, figure out if there's a game on the same server as this one
                     for game in matching_games:
-                        if game.main_channel and (game.main_channel.guild == message.channel.guild):
+                        if game.main_channel and (message.channel.type != discord.ChannelType.private) and (game.main_channel.guild == message.channel.guild):
                             matching_game = game
                             break
                     else:

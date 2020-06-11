@@ -96,6 +96,7 @@ class Deck(object):
         # Create and return a copy of this deck
         new = Deck()
         new.questions = self.questions[:]
+        new.normal_questions = self.normal_questions[:]
         new.custom_questions = self.custom_questions[:]
         new.used_questions = self.used_questions[:]
         new.loaded = self.loaded
