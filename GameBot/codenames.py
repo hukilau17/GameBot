@@ -3,6 +3,8 @@
 
 import discord
 import recordclass
+import sys
+import os
 import random
 import asyncio
 
@@ -35,7 +37,8 @@ class Codenames(Game):
 
 
     async def setup(self):
-        with open('codewords') as o:
+        filename = os.path.join(os.path.dirname(sys.modules[__name__].__file__), 'codewords')
+        with open(filename) as o:
             # Load the word bank
             self.codewords = o.read().strip().splitlines()
         
