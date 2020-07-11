@@ -24,6 +24,8 @@ ASSASSIN = 4
 
 COLORS = ['None', 'Red', 'Blue', 'Civilian', 'Assassin']
 
+SQUARES = [chr(0), chr(0x1f7e5), chr(0x1f7e6), chr(0x2b1c), chr(0x2b1b)]
+
 
 
 
@@ -110,7 +112,7 @@ class Codenames(Game):
                 return
             # Print out the game board if the game has started
             if self.board:
-                board = [i if isinstance(i, str) else '[%s]' % COLORS[i] for i in board]
+                board = [i if isinstance(i, str) else '[%s]' % COLORS[i] for i in self.board]
                 rows = [board[i:i+self.board_size[0]] for i in range(0, len(board), self.board_size[0])]
                 colwidths = [max(map(len, [rows[j][i] for j in range(len(rows))])) + 2 for i in range(len(rows[0]))]
                 rows = [[s.center(colwidths[i]) for i, s in enumerate(row)] for row in rows]
@@ -141,6 +143,11 @@ class Codenames(Game):
             await self.main_channel.send('*Not currently waiting for anyone to make a decision.*')
 
 
+    async def cn_rules(self, message):
+        '''Prints out the game rules'''
+        await message.channel.send('https://czechgames.com/files/rules/codenames-rules-en.pdf')
+
+
 
     # Overrides of join and leave
 
@@ -158,10 +165,12 @@ class Codenames(Game):
                     self.red_team.append(player)
                     if player in self.blue_team:
                         self.blue_team.remove(player)
+                    await self.main_channel.send('%s is on the Red Team.' % player.user.mention)
                 elif team == 'blue':
                     self.blue_team.append(player)
                     if player in self.red_team:
                         self.red_team.remove(player)
+                    await self.main_channel.send('%s is on the Blue Team.' % player.user.mention)
                 else:
                     await message.channel.send('Unrecognized team name "%s"' % team)
 
@@ -220,7 +229,7 @@ class Codenames(Game):
         # Error checking
         not_joined = [p for p in self.players if p not in self.red_team + self.blue_team]
         if not_joined:
-            await message.channel.send('Cannot start because the following players still need to join a team:* %s.' % \
+            await message.channel.send('Cannot start because the following players still need to join a team: %s.' % \
                                        ', '.join([p.user.mention for p in not_joined]))
             self.running = False
             return
@@ -241,8 +250,8 @@ class Codenames(Game):
         self.key.append(ASSASSIN) # Make sure there is exactly one assassin
         random.shuffle(self.key) # And shuffle it
         # Create the key string
-        self.key_string = '\n'.join(['RBCX'[s-1] for s in self.key[i:i+self.board_size[0]] for i in range(0, len(self.key), self.board_size[0])])
-        self.key_string += '\n(Legend: R=Red, B=Blue, C=Civilian, X=Assassin)'
+        self.key_string = '\n'.join([''.join([SQUARES[s-1] for s in self.key[i:i+self.board_size[0]]]) for i in range(0, len(self.key), self.board_size[0])])
+        self.key_string += '\n(Legend: %s=Red, %s=Blue, %s=Civilian, %s=Assassin)' % tuple(SQUARES[1:])
         # Update whose turn it is
         self.current_team = order[0]
         self.waiting_for_clue = True
@@ -298,6 +307,21 @@ class Codenames(Game):
                     # Give the clue
                     await self.main_channel.send('%s has given the following clue to the %s Team: %s %s' % \
                                                  (player.user.mention, COLORS[self.current_team], clue, num))
+            
+
+        
+                
+    async def cn_key(self, message):
+        '''As the cluemaster, request a DM of the game key'''
+        if (await self.check_running(message)):
+            player = self.find_player(message.author)
+            # Error checking
+            if player is None:
+                await message.channel.send('You are not currently part of this game.')
+            elif player not in (self.red_team[0], self.blue_team[0]):
+                await message.channel.send('You are not currently the cluemaster.')
+            else:
+                await message.author.send(self.key_string)
 
 
 
