@@ -117,6 +117,9 @@ class LiarsDice(Game):
             if (n_dice_start < 1) or (n_dice_end < 0) or (n_sides < 2) or (n_dice_end == n_dice_start):
                 await message.channel.send('Error: invalid dice configuration')
                 return
+            if (n_dice_start > 1000) or (n_dice_end > 1000) or (n_sides > 1000):
+                await message.channel.send('Stop trying to break the bot, you bozo.')
+                return
             self.n_dice_start = n_dice_start
             self.n_dice_end = n_dice_end
             self.n_sides = n_sides
@@ -299,9 +302,10 @@ class LiarsDice(Game):
             await self.main_channel.send('*%s has been eliminated from the game.*' % player.user.mention)
             self.players.remove(player)
             if len(self.players) == 1:
+                winner = self.players[0].user.mention
                 channel = self.main_channel
                 self.close()
-                await channel.send('**The game is over. %s is the winner!**' % self.players[0].user.mention)
+                await channel.send('**The game is over. %s is the winner!**' % winner)
 
                 
     async def reward(self, player):
