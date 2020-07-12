@@ -135,10 +135,10 @@ class Codenames(Game):
                 if self.waiting_for_clue:
                     team = (self.red_team if self.current_team == RED else self.blue_team)
                     cluemaster = team[0]
-                    await self.main_channel.send('*Currently waiting for %s to give a clue.' % cluemaster.user.mention)
+                    await self.main_channel.send('*Currently waiting for %s to give a clue.*' % cluemaster.user.mention)
                     return
                 if self.guesses_remaining:
-                    await self.main_channel.send('*Currently waiting for the %s Team to click on something.' % COLORS[self.current_team])
+                    await self.main_channel.send('*Currently waiting for the %s Team to click on something.*' % COLORS[self.current_team])
                     return
             await self.main_channel.send('*Not currently waiting for anyone to make a decision.*')
 
@@ -250,7 +250,7 @@ class Codenames(Game):
         self.key.append(ASSASSIN) # Make sure there is exactly one assassin
         random.shuffle(self.key) # And shuffle it
         # Create the key string
-        self.key_string = '\n'.join([''.join([SQUARES[s-1] for s in self.key[i:i+self.board_size[0]]]) for i in range(0, len(self.key), self.board_size[0])])
+        self.key_string = '\n'.join([''.join([SQUARES[s] for s in self.key[i:i+self.board_size[0]]]) for i in range(0, len(self.key), self.board_size[0])])
         self.key_string += '\n(Legend: %s=Red, %s=Blue, %s=Civilian, %s=Assassin)' % tuple(SQUARES[1:])
         # Update whose turn it is
         self.current_team = order[0]
