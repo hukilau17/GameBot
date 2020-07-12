@@ -8,6 +8,8 @@ import asyncio
 
 from GameBot.game import PING_DELAY
 
+ONLINE_NOTIFS = False # Disable these for now because everyone keeps griping about them
+
 
 
 
@@ -43,7 +45,7 @@ class GameBot(discord.Client):
         self.init_channels()
         if (not self.connected) or any([game.running for game in self.games]):
             for channel in self.main_channels.values():
-                if channel:
+                if channel and ONLINE_NOTIFS:
                     await channel.send('%s is now online' % self.user.mention)
             if not self.connected:
                 for id, channel in self.ping_channels.items():
@@ -56,7 +58,7 @@ class GameBot(discord.Client):
                                     # The only reason we ever post in #game-talk is to ping.
                                     self.last_ping[id] = message.created_at
                                     break
-                        await asyncio.gather(*[game.setup() for game in self.games])
+                await asyncio.gather(*[game.setup() for game in self.games])
                 self.connected = True
 
 

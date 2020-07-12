@@ -23,8 +23,9 @@ CIVILIAN = 3
 ASSASSIN = 4
 
 COLORS = ['None', 'Red', 'Blue', 'Civilian', 'Assassin']
-
 SQUARES = [chr(0), chr(0x1f7e5), chr(0x1f7e6), chr(0x2b1c), chr(0x2b1b)]
+CIRCLES = [chr(0), chr(0x1f534), chr(0x1f535), chr(0x26aa), chr(0x26ab)]
+
 
 
 
@@ -39,10 +40,11 @@ class Codenames(Game):
 
 
     async def setup(self):
-        filename = os.path.join(os.path.dirname(sys.modules[__name__].__file__), 'codewords')
-        with open(filename) as o:
-            # Load the word bank
-            self.codewords = o.read().strip().splitlines()
+        if not hasattr(self, 'codewords'):
+            filename = os.path.join(os.path.dirname(sys.modules[__name__].__file__), 'codewords')
+            with open(filename) as o:
+                # Load the word bank
+                self.codewords = o.read().strip().splitlines()
         
 
     async def create(self, message):
@@ -96,10 +98,11 @@ class Codenames(Game):
     async def cn_info(self, message):
         '''Print out the current game info'''
         if (await self.check_game(message)):
+            info = 'Game owner: %s\n' % self.owner.user.mention
             # Print out the team info
             red_names = [p.user.name for p in self.red_team]
             if red_names: red_names[0] += ' (Cluemaster)'
-            info = '**Red team**\n%s\n' % ', '.join(red_names)
+            info += '**Red team**\n%s\n' % ', '.join(red_names)
             blue_names = [p.user.name for p in self.blue_team]
             if blue_names: blue_names[0] += ' (Cluemaster)'
             info += '**Blue team**\n%s\n' % ', '.join(blue_names)
@@ -112,11 +115,11 @@ class Codenames(Game):
                 return
             # Print out the game board if the game has started
             if self.board:
-                board = [i if isinstance(i, str) else '[%s]' % COLORS[i] for i in self.board]
+                board = [i if isinstance(i, str) else CIRCLES[i] for i in self.board]
                 rows = [board[i:i+self.board_size[0]] for i in range(0, len(board), self.board_size[0])]
                 colwidths = [max(map(len, [rows[j][i] for j in range(len(rows))])) + 2 for i in range(len(rows[0]))]
                 rows = [[s.center(colwidths[i]) for i, s in enumerate(row)] for row in rows]
-                info += 'Game board:\n```'
+                info += 'Game board:\n```\n'
                 divider = '+%s+\n' % '+'.join(['-' * i for i in colwidths])
                 info += divider
                 for row in rows:
@@ -283,7 +286,7 @@ class Codenames(Game):
                 num = None
                 if len(spl) == 4:
                     clue = spl[2].upper()
-                    if spl[3] == 'u':
+                    if spl[3] in ('u', 'unlimited'):
                         num = -1
                     else:
                         try:
