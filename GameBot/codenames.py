@@ -154,7 +154,7 @@ class Codenames(Game):
 
     # Overrides of join and leave
 
-    async def cn_join(self, message):
+    async def gb_join(self, message):
         '''Join a game that has not yet started'''
         spl = message.content.split()
         if not (self.find_player(message.author) and (len(spl) == 3)):
@@ -178,7 +178,7 @@ class Codenames(Game):
                     await message.channel.send('Unrecognized team name "%s"' % team)
 
 
-    async def cn_leave(self, message):
+    async def gb_leave(self, message):
         '''Leave a game before it begins'''
         player = self.find_player(message.author)
         await self.gb_leave(message)
