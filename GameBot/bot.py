@@ -3,12 +3,14 @@
 
 import discord
 import os
+import re
 import datetime
 import asyncio
 
 from GameBot.game import PING_DELAY
 
 ONLINE_NOTIFS = False # Disable these for now because everyone keeps griping about them
+DAD_JOKES = True # Disable these if you value your sanity
 
 
 
@@ -114,6 +116,23 @@ class GameBot(discord.Client):
             if (user == message.author) and (game.main_channel == message.channel):
                 await message.delete()
                 break
+        # Dad joke replies
+        if DAD_JOKES:
+            await self.dad_joke_reply(message)
+
+
+
+    async def dad_joke_reply(self, message):
+        if message.content.lower().startswith('i\'m '):
+            text = message.content[4:]
+        elif message.content.lower().startswith('im '):
+            text = message.content[3:]
+        else:
+            text = ''
+        if text:
+            text = re.split(r'[.,:;?!]', text)[0]
+            await message.channel.send('Hi %s, I\'m %s.' % (text, self.user.mention))
+
 
 
     def run(self):
