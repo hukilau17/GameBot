@@ -115,7 +115,7 @@ class GameBot(discord.Client):
         for user, game in self.muted:
             if (user == message.author) and (game.main_channel == message.channel):
                 await message.delete()
-                break
+                return # Don't do a dad joke reply if they're muted
         # Dad joke replies
         if DAD_JOKES:
             await self.dad_joke_reply(message)
@@ -130,8 +130,9 @@ class GameBot(discord.Client):
         else:
             text = ''
         if text:
-            text = re.split(r'[.,:;?!]', text)[0]
-            await message.channel.send('Hi %s, I\'m %s.' % (text, self.user.mention))
+            text = re.match(r'([^.,:;?!]|<@!?\d+>|<:\w+:\d+>)+', text).strip()
+            if text:
+                await message.channel.send('Hi %s, I\'m %s.' % (text, self.user.mention))
 
 
 
