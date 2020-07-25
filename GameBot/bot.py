@@ -130,7 +130,7 @@ class GameBot(discord.Client):
         else:
             text = ''
         if text:
-            match = re.match(r'([^.,:;?!]|<@!?\d+>|<:\w+:\d+>)+', text)
+            match = re.match(r'(<@!?\d+>|<:\w+:\d+>|[^.,:;?!])+', text)
             if match:
                 text = match.group().strip()
                 if text:
