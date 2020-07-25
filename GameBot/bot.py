@@ -130,9 +130,11 @@ class GameBot(discord.Client):
         else:
             text = ''
         if text:
-            text = re.match(r'([^.,:;?!]|<@!?\d+>|<:\w+:\d+>)+', text).strip()
-            if text:
-                await message.channel.send('Hi %s, I\'m %s.' % (text, self.user.mention))
+            match = re.match(r'([^.,:;?!]|<@!?\d+>|<:\w+:\d+>)+', text)
+            if match:
+                text = match.group().strip()
+                if text:
+                    await message.channel.send('Hi %s, I\'m %s.' % (text, self.user.mention))
 
 
 
