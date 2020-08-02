@@ -118,7 +118,8 @@ class GameBot(discord.Client):
                 return # Don't do a dad joke reply if they're muted
         # Dad joke replies
         if DAD_JOKES:
-            if not discord.utils.get(message.author.roles, name=os.getenv('GAMEBOT_MOM_NAME')):
+            roles = getattr(message.author, 'roles', []) # No roles in a DM
+            if not discord.utils.get(roles, name=os.getenv('GAMEBOT_MOM_NAME')):
                 # People with the "Mom" role are immune to Dad jokes. (Naturally.)
                 await self.dad_joke_reply(message)
 
